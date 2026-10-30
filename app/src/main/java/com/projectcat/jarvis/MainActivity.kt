@@ -301,8 +301,9 @@ private fun JarvisHome(
                         enabled = modelVerified && !offlineState.loading && !offlineState.ready &&
                             com.projectcat.jarvis.ai.OfflineModelReadinessPolicy.canLoad(availableRam),
                         onClick = {
-                            availableRam = modelStore.availableMemoryBytes()
-                            if (!com.projectcat.jarvis.ai.OfflineModelReadinessPolicy.canLoad(availableRam)) {
+                            val currentAvailableRam = modelStore.availableMemoryBytes()
+                            availableRam = currentAvailableRam
+                            if (!com.projectcat.jarvis.ai.OfflineModelReadinessPolicy.canLoad(currentAvailableRam)) {
                                 downloadStatus = "Not loaded: available RAM is below the 2.8 GB safety threshold."
                             } else {
                                 offlineRunner.load(modelStore.modelFile())
