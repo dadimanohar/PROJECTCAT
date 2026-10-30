@@ -277,7 +277,7 @@ private fun JarvisHome(
                             } else if (matches.isEmpty()) {
                                 "No saved memory matched that keyword."
                             } else {
-                                "Saved memories:\\n" + matches.joinToString("\\n") { "• $it" }
+                                "Saved memories:\n" + matches.joinToString("\n") { "• $it" }
                             }
                         }
                         command.startsWith("/forget", ignoreCase = true) -> {
