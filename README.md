@@ -6,7 +6,7 @@
 Jarvis is intended to be a local-first Android assistant with an online/offline intelligence layer, voice interaction, persistent memory, permission-controlled Android tools, and verifiable agent workflows.
 
 ## Honest status
-The Android foundation, online-provider implementation, push-to-talk voice layer, SQLite chat history, explicit memory facts, local notes, LiteRT-LM offline-model integration, browser/maps/dialer handoffs, one-action approval-gated online planner, and privacy-minimized action history are committed. Jarvis is **not** a completed application and is **not** evidence of AGI. Latest verified commit `8c4b961d3c4ca78892c981e863e8c1a96b78dd0f` passed GitHub Actions run [41065789411](https://github.com/dadimanohar/PROJECTCAT/actions/runs/41065789411): unit tests passed, the debug APK built, and the `jarvis-debug-apk` artifact (about 32.8 MB) was uploaded. Physical-device installation, model download, and inference testing remain outstanding.
+The Android foundation, online-provider implementation, push-to-talk voice layer, SQLite chat history, explicit memory facts, local notes, guided Study Mode (online-provider only), LiteRT-LM offline-model integration, browser/maps/dialer handoffs, one-action approval-gated online planner, and privacy-minimized action history are committed. Jarvis is **not** a completed application and is **not** evidence of AGI. Latest verified commit `8c4b961d3c4ca78892c981e863e8c1a96b78dd0f` passed GitHub Actions run [41065789411](https://github.com/dadimanohar/PROJECTCAT/actions/runs/41065789411): unit tests passed, the debug APK built, and the `jarvis-debug-apk` artifact (about 32.8 MB) was uploaded. Physical-device installation, model download, and inference testing remain outstanding.
 
 ### Implemented in this foundation
 - Kotlin + Jetpack Compose Android app structure.
@@ -16,6 +16,7 @@ The Android foundation, online-provider implementation, push-to-talk voice layer
 - User-confirmed clear-history action that deletes locally stored messages.
 - Explicit offline memory facts with `/remember`, keyword `/recall`, exact `/forget`, `/memories` inspection, and two-step `/forget-all` deletion.
 - Local notes with `/note`, `/notes`, and two-step `/delete-note <id>` deletion; note text is stored locally in SQLite, validated to 1–1,000 characters, and capped at 200 notes.
+- Guided Study Mode with a persistent on/off setting and `/study on`, `/study off`, `/study status`; online tutoring uses hints, one question at a time, and practice checks rather than immediately doing homework. The current offline runner does not yet accept a separate tutor instruction, so Study Mode is online-provider only.
 - Memory fact validation (1–500 characters), whitespace normalization, and duplicate replacement.
 - LiteRT-LM 0.18.1 runtime integration for an optional local Qwen3-0.6B model.
 - Wi-Fi-only in-app model download, size checks, SHA-256 verification, and CPU-only inference runner.
@@ -38,6 +39,12 @@ The Android foundation, online-provider implementation, push-to-talk voice layer
 - General Android app/device automation and broader permission/approval flows; only browser, web-search, map-search, and dialer handoffs currently exist.
 - Multi-step agent planning, action-result verification, retries, recovery, and general Android device automation. `/agent` currently proposes one browser/maps/dialer handoff and waits for explicit approval.
 - Physical installation and validation on the Tab A9; CI APK packaging does not prove device compatibility.
+
+## Guided Study Mode
+- Enable Study Mode from the screen switch or send `/study on`; use `/study off` to disable it and `/study status` to check it.
+- Study Mode is persisted on this device and applies a tutor instruction to online chat requests.
+- The tutor should teach in small steps, give hints before final answers, ask one question at a time, and check understanding.
+- Study Mode currently requires the configured online provider. The offline model path does not yet support a separate tutor instruction, and the UI disables the switch while offline mode is selected.
 
 ## Voice interaction
 The current voice feature is push-to-talk. Android asks for microphone permission when the user taps Speak; recognised text is placed in the composer and must be reviewed and sent by the user. Jarvis replies can be spoken using Android TextToSpeech. This does not provide a wake word or background listening, and speech service availability/language behavior must be checked on the physical tablet.
