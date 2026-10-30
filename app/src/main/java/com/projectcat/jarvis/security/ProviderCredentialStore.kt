@@ -4,6 +4,7 @@ import android.content.Context
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
 import android.util.Base64
+import com.projectcat.jarvis.ai.ChatCompletionsEndpoint
 import com.projectcat.jarvis.ai.OpenAiCompatibleProvider
 import com.projectcat.jarvis.ai.ProviderSettings
 import java.security.KeyStore
@@ -24,9 +25,7 @@ class ProviderCredentialStore(context: Context) {
 
     @Synchronized
     fun save(baseUrl: String, model: String, apiKey: String) {
-        require(baseUrl.trim().startsWith("https://")) {
-            "Provider URL must use HTTPS to protect API credentials in transit."
-        }
+        ChatCompletionsEndpoint.from(baseUrl)
         require(model.isNotBlank()) { "Model name cannot be empty." }
         val editor = prefs.edit()
             .putString(KEY_BASE_URL, baseUrl.trim())
