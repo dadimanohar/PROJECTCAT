@@ -14,6 +14,17 @@ object ChatHistoryPolicy {
         entries.filter { it.role.isNotBlank() && it.text.isNotBlank() }.takeLast(MAX_MESSAGES)
 }
 
+object MemoryFactPolicy {
+    const val MAX_FACT_LENGTH = 500
+
+    fun normalize(fact: String): String = fact.trim().replace(Regex("\\s+"), " ").lowercase()
+
+    fun validate(fact: String): String? {
+        val clean = fact.trim().replace(Regex("\\s+"), " ")
+        return clean.takeIf { it.isNotBlank() && it.length <= MAX_FACT_LENGTH }
+    }
+}
+
 /**
  * SQLite-backed local conversation history.
  *
@@ -77,6 +88,54 @@ class ChatHistoryStore(context: Context) {
             .apply()
     }
 
+    @Synchronized
+    fun rememberFact(fact: String): Boolean {
+        val clean = MemoryFactPolicy.validate(fact) ?: return false
+        val values = android.content.ContentValues().apply {
+            put(COLUMN_FACT, clean)
+            put(COLUMN_NORMALIZED_FACT, MemoryFactPolicy.normalize(clean))
+            put(COLUMN_CREATED_AT, System.currentTimeMillis())
+        }
+        helper.writableDatabase.insertWithOnConflict(
+            TABLE_FACTS,
+            null,
+            values,
+            SQLiteDatabase.CONFLICT_REPLACE
+        )
+        return true
+    }
+
+    @Synchronized
+    fun searchFacts(query: String, limit: Int = 20): List<String> {
+        val cleanQuery = query.trim()
+        if (cleanQuery.isBlank()) return emptyList()
+        val results = mutableListOf<String>()
+        helper.readableDatabase.query(
+            TABLE_FACTS,
+            arrayOf(COLUMN_FACT),
+            "instr(lower($COLUMN_FACT), lower(?)) > 0",
+            arrayOf(cleanQuery),
+            null,
+            null,
+            "$COLUMN_CREATED_AT DESC",
+            limit.coerceIn(1, 50).toString()
+        ).use { cursor ->
+            while (cursor.moveToNext()) results += cursor.getString(0)
+        }
+        return results
+    }
+
+    @Synchronized
+    fun forgetFact(fact: String): Boolean {
+        val normalized = MemoryFactPolicy.normalize(fact)
+        if (normalized.isBlank()) return false
+        return helper.writableDatabase.delete(
+            TABLE_FACTS,
+            "$COLUMN_NORMALIZED_FACT = ?",
+            arrayOf(normalized)
+        ) > 0
+    }
+
     private fun migrateLegacyHistoryIfNeeded() {
         if (legacyPrefs.getBoolean(MIGRATION_COMPLETE_KEY, false)) return
 
@@ -129,17 +188,35 @@ class ChatHistoryStore(context: Context) {
                 """.trimIndent()
             )
             db.execSQL("CREATE INDEX idx_chat_created_at ON $TABLE_MESSAGES ($COLUMN_ID)")
+            createFactsTable(db)
         }
 
         override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
-            // No released database schema exists yet. Future schema changes must use explicit migrations.
+            if (oldVersion < 2) createFactsTable(db)
+        }
+
+        private fun createFactsTable(db: SQLiteDatabase) {
+            db.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS $TABLE_FACTS (
+                    $COLUMN_FACT_ID INTEGER PRIMARY KEY AUTOINCREMENT,
+                    $COLUMN_FACT TEXT NOT NULL,
+                    $COLUMN_NORMALIZED_FACT TEXT NOT NULL UNIQUE,
+                    $COLUMN_CREATED_AT INTEGER NOT NULL
+                )
+                """.trimIndent()
+            )
         }
     }
 
     private companion object {
         const val DATABASE_NAME = "jarvis_memory.db"
-        const val DATABASE_VERSION = 1
+        const val DATABASE_VERSION = 2
         const val TABLE_MESSAGES = "chat_messages"
+        const val TABLE_FACTS = "memory_facts"
+        const val COLUMN_FACT_ID = "fact_id"
+        const val COLUMN_FACT = "fact_text"
+        const val COLUMN_NORMALIZED_FACT = "normalized_fact"
         const val COLUMN_ID = "id"
         const val COLUMN_ROLE = "role"
         const val COLUMN_TEXT = "message_text"
