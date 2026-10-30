@@ -19,7 +19,12 @@ class ChatCompletionsEndpointTest {
     }
 
     @Test(expected = IllegalArgumentException::class)
-    fun rejectsUrlsWithoutHttpScheme() {
+    fun rejectsUrlsWithoutHttps() {
+        ChatCompletionsEndpoint.from("http://api.example.com/v1")
+    }
+
+    @Test(expected = IllegalArgumentException::class)
+    fun rejectsUrlsWithoutScheme() {
         ChatCompletionsEndpoint.from("api.example.com/v1")
     }
 }
