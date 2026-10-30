@@ -15,7 +15,7 @@ interface ChatCompletionProvider {
     suspend fun replyWithSystemInstruction(
         systemInstruction: String,
         history: List<ChatEntry>
-    ): String = reply(listOf(ChatEntry("You", systemInstruction)) + history)
+    ): String
 }
 
 data class ProviderSettings(
