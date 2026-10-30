@@ -19,24 +19,24 @@ The Android foundation, online-provider implementation, push-to-talk voice layer
 - Small deterministic local command router.
 - Explicit response when a requested operation is not implemented; no fake device actions.
 - Initial tool-risk policy that blocks sensitive/destructive tool requests pending explicit approval.
-- Unit tests for the tool approval policy (committed; not yet executed).
+- Unit tests for chat-history retention, memory-fact validation, provider endpoint validation, and tool approval policy (executed by GitHub Actions; latest changes are undergoing a fresh run).
 
 ### Not yet implemented
-- OpenAI-compatible HTTPS chat provider client (non-streaming Chat Completions format).
-- Android Keystore AES-GCM encrypted API-key storage and provider settings UI (implementation committed; device behavior not yet verified).
-- Permission-gated push-to-talk speech recognition that fills the composer for user review.
-- Optional text-to-speech for Jarvis replies, with a user-controlled toggle.
-- Android 11+ package visibility queries for speech recognition and TTS services.
 - Local/offline model runtime and performance validation on the Tab A9.
-- Semantic/vector memory retrieval (not implemented; current explicit memory recall uses keyword matching, not embeddings or semantic similarity).
+- Semantic/vector memory retrieval (current explicit memory recall uses keyword matching, not embeddings or semantic similarity).
 - Always-on wake phrase and background microphone service (not implemented; push-to-talk only).
 - Android app/device automation and permission/approval flows.
 - Agent planning, tool execution, verification, and recovery.
-- GitHub Actions workflow runs unit tests and builds/uploads a debug APK. Previous successful run: [GitHub Actions run 41021188956](https://github.com/dadimanohar/PROJECTCAT/actions/runs/41021188956). The latest SQLite changes require a new run.
-- APK installation and physical-device validation.
+- Physical installation and validation on the Tab A9; CI APK packaging does not prove device compatibility.
 
 ## Voice interaction
 The current voice feature is push-to-talk. Android asks for microphone permission when the user taps Speak; recognised text is placed in the composer and must be reviewed and sent by the user. Jarvis replies can be spoken using Android TextToSpeech. This does not provide a wake word or background listening, and speech service availability/language behavior must be checked on the physical tablet.
+
+## Local memory commands
+- `/remember <fact>` stores an explicit fact locally (maximum 500 characters).
+- `/recall <keyword>` searches saved facts by keyword.
+- `/forget <exact fact>` deletes one exact saved fact.
+- `/remember`, `/recall`, and `/forget` are handled on-device and do not call the online model. Retrieval is keyword-based, not semantic.
 
 ## Online provider setup
 In the app, enter an HTTPS OpenAI-compatible API base URL, model name, and optional API key, then save the provider. The key is encrypted with an Android Keystore AES-GCM key and is not stored in source control. The first provider implementation uses the standard `/chat/completions` endpoint and non-streaming responses. Provider compatibility still needs live testing.
@@ -53,7 +53,7 @@ Android Studio, JDK 17, Android SDK Platform 35, and Gradle sync. Open this repo
 - Treat model output as untrusted; verify tool results independently.
 
 ## Roadmap
-1. Add semantic memory retrieval and user-facing memory management on top of explicit local facts.
+1. Add semantic memory retrieval and richer user-facing memory management on top of explicit local facts.
 2. Live-test the OpenAI-compatible provider using a configured test account.
 3. Evaluate small quantized offline models against real RAM/latency limits.
 4. Test speech recognition and text-to-speech on the Tab A9; then investigate wake-word feasibility.
