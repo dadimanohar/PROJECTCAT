@@ -27,4 +27,19 @@ class ChatCompletionsEndpointTest {
     fun rejectsUrlsWithoutScheme() {
         ChatCompletionsEndpoint.from("api.example.com/v1")
     }
+
+    @Test(expected = IllegalArgumentException::class)
+    fun rejectsCredentialsEmbeddedInUrl() {
+        ChatCompletionsEndpoint.from("https://user:secret@example.com/v1")
+    }
+
+    @Test(expected = IllegalArgumentException::class)
+    fun rejectsQueryParameters() {
+        ChatCompletionsEndpoint.from("https://example.com/v1?token=secret")
+    }
+
+    @Test(expected = IllegalArgumentException::class)
+    fun rejectsFragments() {
+        ChatCompletionsEndpoint.from("https://example.com/v1#fragment")
+    }
 }
