@@ -252,6 +252,7 @@ private fun JarvisHome(
                         "This model may need substantial additional RAM; 4 GB devices can run out of memory."
                 )
                 Text(downloadStatus, style = MaterialTheme.typography.bodySmall)
+                Text("Safety gate: loading is disabled unless at least 2.8 GB RAM is currently available.", style = MaterialTheme.typography.bodySmall)
                 if (downloadActive) {
                     Text("Download progress: $downloadProgress%")
                 }
@@ -271,11 +272,16 @@ private fun JarvisHome(
                         modifier = Modifier.weight(1f)
                     ) { Text(if (modelVerified) "Downloaded" else "Download model") }
                     Button(
-                        enabled = modelVerified && !offlineState.loading && !offlineState.ready,
+                        enabled = modelVerified && !offlineState.loading && !offlineState.ready &&
+                            com.projectcat.jarvis.ai.OfflineModelReadinessPolicy.canLoad(availableRam),
                         onClick = {
                             availableRam = modelStore.availableMemoryBytes()
-                            offlineRunner.load(modelStore.modelFile())
-                            downloadStatus = "Loading model on CPU in the background…"
+                            if (!com.projectcat.jarvis.ai.OfflineModelReadinessPolicy.canLoad(availableRam)) {
+                                downloadStatus = "Not loaded: available RAM is below the 2.8 GB safety threshold."
+                            } else {
+                                offlineRunner.load(modelStore.modelFile())
+                                downloadStatus = "Loading model on CPU in the background…"
+                            }
                         },
                         modifier = Modifier.weight(1f)
                     ) { Text(if (offlineState.loading) "Loading…" else "Load model") }
