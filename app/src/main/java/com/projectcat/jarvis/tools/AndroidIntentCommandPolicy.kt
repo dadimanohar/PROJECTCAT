@@ -15,7 +15,7 @@ sealed interface AndroidIntentCommand {
 object AndroidIntentCommandPolicy {
     const val MAX_SHARE_LENGTH = 2_000
     private val packagePattern = Regex("^[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z_][A-Za-z0-9_]*)+$")
-    private val mimePattern = Regex("^[A-Za-z0-9!#$&^_.+-]+/(?:[A-Za-z0-9!#$&^_.+-]+|\\*)$")
+    private val mimePattern = Regex("^(?:[A-Za-z0-9!#private val mimePattern = Regex("^[A-Za-z0-9!#$&^_.+-]+/(?:[A-Za-z0-9!#$&^_.+-]+|\\*)$")^_.+-]+|\\*)/(?:[A-Za-z0-9!#private val mimePattern = Regex("^[A-Za-z0-9!#$&^_.+-]+/(?:[A-Za-z0-9!#$&^_.+-]+|\\*)$")^_.+-]+|\\*)$")
 
     fun parse(input: String): AndroidIntentCommand? {
         val command = input.trim()
