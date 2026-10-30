@@ -18,13 +18,18 @@ This commit establishes the native Android project foundation only. It is **not*
 - Unit tests for the tool approval policy (committed; not yet executed).
 
 ### Not yet implemented
-- LLM provider integration and secure credential storage.
+- OpenAI-compatible HTTPS chat provider client.
+- Android Keystore AES-GCM encrypted API-key storage and provider settings UI (not yet device-tested).
 - Local/offline model runtime and performance validation on the Tab A9.
 - Semantic long-term memory, retrieval, and user-facing memory management (basic chat history is implemented; richer memory remains pending).
 - Speech recognition, text-to-speech, wake phrase, and background microphone service.
 - Android app/device automation and permission/approval flows.
 - Agent planning, tool execution, verification, and recovery.
-- Automated test suite, APK packaging, installation, and physical-device validation.
+- CI workflow committed for unit tests and debug APK build; first workflow result pending.
+- APK installation and physical-device validation.
+
+## Online provider setup
+In the app, enter an HTTPS OpenAI-compatible API base URL, model name, and optional API key, then save the provider. The key is encrypted with an Android Keystore AES-GCM key and is not stored in source control. The first provider implementation uses the standard `/chat/completions` endpoint and non-streaming responses. Provider compatibility still needs live testing.
 
 ## Build prerequisites
 Android Studio, JDK 17, Android SDK Platform 35, and Gradle sync. Open this repository as a project and run the `app` configuration on an Android device or emulator. Build compatibility is not yet verified.
@@ -40,7 +45,7 @@ Android Studio, JDK 17, Android SDK Platform 35, and Gradle sync. Open this repo
 ## Roadmap
 1. Build and test the Android shell.
 2. Add local database-backed chat and memory.
-3. Add provider abstraction for online models.
+3. Extend and validate the OpenAI-compatible provider integration.
 4. Evaluate small quantized offline models against real RAM/latency limits.
 5. Add push-to-talk, speech output, then investigate wake-word support.
 6. Add narrowly scoped Android tools with permission gates.
