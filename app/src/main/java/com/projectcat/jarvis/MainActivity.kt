@@ -34,6 +34,9 @@ import com.projectcat.jarvis.memory.ChatHistoryStore
 import com.projectcat.jarvis.memory.ChatEntry
 import com.projectcat.jarvis.memory.MemoryCommand
 import com.projectcat.jarvis.memory.MemoryCommandPolicy
+import com.projectcat.jarvis.memory.ActionAuditCommand
+import com.projectcat.jarvis.memory.ActionAuditCommandPolicy
+import com.projectcat.jarvis.memory.ActionAuditPolicy
 import com.projectcat.jarvis.security.ProviderCredentialStore
 import com.projectcat.jarvis.tools.LocalCommand
 import com.projectcat.jarvis.tools.LocalCommandPolicy
@@ -43,6 +46,8 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.util.Locale
+import java.text.DateFormat
+import java.util.Date
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -95,6 +100,12 @@ private fun JarvisHome(
     var availableRam by remember { mutableLongStateOf(modelStore.availableMemoryBytes()) }
 
     val scope = rememberCoroutineScope()
+
+    fun performLocalAction(command: LocalCommand): String {
+        val result = actionExecutor.execute(command, confirmedByUser = true)
+        result.actionKey?.let { historyStore.recordActionAudit(it, result.outcome) }
+        return result.message
+    }
 
     DisposableEffect(offlineRunner) {
         onDispose { offlineRunner.close() }
@@ -411,7 +422,7 @@ private fun JarvisHome(
             enabled = !isSending,
             label = { Text(if (useOfflineModel) "Ask Jarvis offline" else "Ask Jarvis") }
         )
-        Text("Commands: /help • /agent <task> • /open • /search • /maps • /dial • /remember • /recall • /memories • /forget • /forget-all", style = MaterialTheme.typography.bodySmall)
+        Text("Commands: /help • /agent • /open • /search • /maps • /dial • /remember • /recall • /memories • /forget • /forget-all • /action-log", style = MaterialTheme.typography.bodySmall)
         Text(voiceStatus, style = MaterialTheme.typography.bodySmall)
         if (showClearHistoryDialog) {
             AlertDialog(
@@ -432,7 +443,13 @@ private fun JarvisHome(
         }
         pendingAgentProposal?.let { proposal ->
             AlertDialog(
-                onDismissRequest = { pendingAgentProposal = null },
+                onDismissRequest = {
+                    actionExecutor.actionKey(proposal.action)?.let {
+                        historyStore.recordActionAudit(it, ActionAuditPolicy.CANCELLED)
+                    }
+                    pendingAgentProposal = null
+                    appendMessage("Jarvis", "Action cancelled. Nothing was opened.")
+                },
                 title = { Text("Approve one Jarvis action?") },
                 text = {
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -444,13 +461,15 @@ private fun JarvisHome(
                 },
                 confirmButton = {
                     TextButton(onClick = {
-                        val result = actionExecutor.execute(proposal.action, confirmedByUser = true)
-                        appendMessage("Jarvis", result.message)
+                        appendMessage("Jarvis", performLocalAction(proposal.action))
                         pendingAgentProposal = null
                     }) { Text("Approve and open") }
                 },
                 dismissButton = {
                     TextButton(onClick = {
+                        actionExecutor.actionKey(proposal.action)?.let {
+                            historyStore.recordActionAudit(it, ActionAuditPolicy.CANCELLED)
+                        }
                         pendingAgentProposal = null
                         appendMessage("Jarvis", "Action cancelled. Nothing was opened.")
                     }) { Text("Cancel") }
@@ -486,10 +505,11 @@ private fun JarvisHome(
                             "/maps <place> — open a map search.\n" +
                             "/dial <number> — open the dialer with a number prefilled; it will not place a call.\n" +
                             "/agent <task> — prepare one supported online action for your approval.\n" +
-                            "/remember <fact>, /recall <keyword>, /memories, /forget <exact fact>, /forget-all — manage local memory."
+                            "/remember <fact>, /recall <keyword>, /memories, /forget <exact fact>, /forget-all — manage local memory.\n" +
+                            "/action-log — show recent Android handoffs; /clear-action-log confirm — clear that log."
                         is LocalCommand.Invalid -> localCommand.message
                         is LocalCommand.OpenUrl ->
-                            actionExecutor.execute(localCommand, confirmedByUser = true).message
+                            performLocalAction(localCommand)
                         is LocalCommand.MapsSearch ->
                             actionExecutor.execute(localCommand, confirmedByUser = true).message
                         is LocalCommand.DialNumber ->
@@ -540,6 +560,43 @@ private fun JarvisHome(
                         MemoryCommand.RequestClearAllConfirmation ->
                             "This permanently deletes all saved memory facts. To confirm, send /forget-all confirm."
                     }
+                    val localActionReply = localMemoryReply ?: when (
+                        val auditCommand = ActionAuditCommandPolicy.parse(command)
+                    ) {
+                        null -> null
+                        is ActionAuditCommand.Invalid -> auditCommand.message
+                        ActionAuditCommand.ListRecent -> {
+                            val events = historyStore.loadActionAudit()
+                            if (events.isEmpty()) {
+                                "No Android action handoffs have been recorded."
+                            } else {
+                                val dateFormatter = DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT)
+                                "Recent Android action history (URLs and phone numbers are not stored):\n" +
+                                    events.mapIndexed { index, event ->
+                                        val label = when (event.actionKey) {
+                                            "open_url" -> "Open link"
+                                            "web_search" -> "Web search"
+                                            "maps_search" -> "Map search"
+                                            "dial_number" -> "Open dialer"
+                                            else -> "Local action"
+                                        }
+                                        val outcome = when (event.outcome) {
+                                            ActionAuditPolicy.HANDED_OFF -> "handed off"
+                                            ActionAuditPolicy.CANCELLED -> "cancelled"
+                                            else -> "failed"
+                                        }
+                                        (index + 1).toString() + ". " + label + " — " + outcome +
+                                            " (" + dateFormatter.format(Date(event.createdAt)) + ")"
+                                    }.joinToString("\n")
+                            }
+                        }
+                        ActionAuditCommand.RequestClearConfirmation ->
+                            "This clears only the local action history. To confirm, send /clear-action-log confirm."
+                        ActionAuditCommand.ClearConfirmed -> {
+                            val deleted = historyStore.clearActionAudit()
+                            "Cleared $deleted local action history record(s)."
+                        }
+                    }
                     val agentRequest = AgentRequestPolicy.parse(command)
                     if (agentRequest is AgentRequest.Invalid) {
                         appendMessage("Jarvis", agentRequest.message)
@@ -580,8 +637,8 @@ private fun JarvisHome(
                                 }
                             }
                         }
-                    } else if (localMemoryReply != null) {
-                        appendMessage("Jarvis", localMemoryReply)
+                    } else if (localActionReply != null) {
+                        appendMessage("Jarvis", localActionReply)
                     } else {
                         val requestHistory = messages.takeLast(24)
                         isSending = true

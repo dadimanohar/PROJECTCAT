@@ -6,6 +6,19 @@ import android.database.sqlite.SQLiteOpenHelper
 import org.json.JSONArray
 
 data class ChatEntry(val role: String, val text: String)
+data class ActionAuditEntry(val actionKey: String, val outcome: String, val createdAt: Long)
+
+object ActionAuditPolicy {
+    const val HANDED_OFF = "handed_off"
+    const val FAILED = "failed"
+    const val CANCELLED = "cancelled"
+
+    private val allowedActions = setOf("open_url", "web_search", "maps_search", "dial_number")
+    private val allowedOutcomes = setOf(HANDED_OFF, FAILED, CANCELLED)
+
+    fun isValid(actionKey: String, outcome: String): Boolean =
+        actionKey in allowedActions && outcome in allowedOutcomes
+}
 
 object ChatHistoryPolicy {
     const val MAX_MESSAGES = 300
@@ -158,6 +171,51 @@ class ChatHistoryStore(context: Context) {
         ) > 0
     }
 
+    @Synchronized
+    fun recordActionAudit(actionKey: String, outcome: String): Boolean {
+        if (!ActionAuditPolicy.isValid(actionKey, outcome)) return false
+        val values = android.content.ContentValues().apply {
+            put(COLUMN_ACTION_KEY, actionKey)
+            put(COLUMN_ACTION_OUTCOME, outcome)
+            put(COLUMN_CREATED_AT, System.currentTimeMillis())
+        }
+        val db = helper.writableDatabase
+        if (db.insert(TABLE_ACTION_AUDIT, null, values) == -1L) return false
+        db.execSQL(
+            "DELETE FROM $TABLE_ACTION_AUDIT WHERE $COLUMN_ACTION_ID NOT IN " +
+                "(SELECT $COLUMN_ACTION_ID FROM $TABLE_ACTION_AUDIT ORDER BY $COLUMN_ACTION_ID DESC LIMIT 100)"
+        )
+        return true
+    }
+
+    @Synchronized
+    fun loadActionAudit(limit: Int = 30): List<ActionAuditEntry> {
+        val results = mutableListOf<ActionAuditEntry>()
+        helper.readableDatabase.query(
+            TABLE_ACTION_AUDIT,
+            arrayOf(COLUMN_ACTION_KEY, COLUMN_ACTION_OUTCOME, COLUMN_CREATED_AT),
+            null,
+            null,
+            null,
+            null,
+            "$COLUMN_ACTION_ID DESC",
+            limit.coerceIn(1, 30).toString()
+        ).use { cursor ->
+            while (cursor.moveToNext()) {
+                results += ActionAuditEntry(
+                    actionKey = cursor.getString(0),
+                    outcome = cursor.getString(1),
+                    createdAt = cursor.getLong(2)
+                )
+            }
+        }
+        return results
+    }
+
+    @Synchronized
+    fun clearActionAudit(): Int =
+        helper.writableDatabase.delete(TABLE_ACTION_AUDIT, null, null)
+
     private fun migrateLegacyHistoryIfNeeded() {
         if (legacyPrefs.getBoolean(MIGRATION_COMPLETE_KEY, false)) return
 
@@ -211,10 +269,25 @@ class ChatHistoryStore(context: Context) {
             )
             db.execSQL("CREATE INDEX idx_chat_created_at ON $TABLE_MESSAGES ($COLUMN_ID)")
             createFactsTable(db)
+            createActionAuditTable(db)
         }
 
         override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
             if (oldVersion < 2) createFactsTable(db)
+            if (oldVersion < 3) createActionAuditTable(db)
+        }
+
+        private fun createActionAuditTable(db: SQLiteDatabase) {
+            db.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS $TABLE_ACTION_AUDIT (
+                    $COLUMN_ACTION_ID INTEGER PRIMARY KEY AUTOINCREMENT,
+                    $COLUMN_ACTION_KEY TEXT NOT NULL,
+                    $COLUMN_ACTION_OUTCOME TEXT NOT NULL,
+                    $COLUMN_CREATED_AT INTEGER NOT NULL
+                )
+                """.trimIndent()
+            )
         }
 
         private fun createFactsTable(db: SQLiteDatabase) {
@@ -233,9 +306,13 @@ class ChatHistoryStore(context: Context) {
 
     private companion object {
         const val DATABASE_NAME = "jarvis_memory.db"
-        const val DATABASE_VERSION = 2
+        const val DATABASE_VERSION = 3
         const val TABLE_MESSAGES = "chat_messages"
         const val TABLE_FACTS = "memory_facts"
+        const val TABLE_ACTION_AUDIT = "action_audit"
+        const val COLUMN_ACTION_ID = "event_id"
+        const val COLUMN_ACTION_KEY = "action_key"
+        const val COLUMN_ACTION_OUTCOME = "outcome"
         const val COLUMN_FACT_ID = "fact_id"
         const val COLUMN_FACT = "fact_text"
         const val COLUMN_NORMALIZED_FACT = "normalized_fact"

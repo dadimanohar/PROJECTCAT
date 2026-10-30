@@ -61,6 +61,11 @@ The current voice feature is push-to-talk. Android asks for microphone permissio
 - `/forget-all` asks for a separate `/forget-all confirm` command before deleting every saved memory fact.
 - All memory commands are handled on-device and do not call the online model. Retrieval is keyword-based, not semantic.
 
+## Action audit history
+- `/action-log` lists the latest 30 local Android handoffs.
+- `/clear-action-log` asks for a separate `/clear-action-log confirm` command before clearing the log.
+- The database retains at most 100 events and stores only an action category (`open_url`, `web_search`, `maps_search`, or `dial_number`), a handoff/failure/cancellation outcome, and a timestamp. It does not store URLs, search text, or phone numbers.
+
 ## Offline model setup
 Jarvis can download the standard Qwen3-0.6B LiteRT-LM artifact (614 MB) from Hugging Face after the user taps Download model. The download is Wi-Fi-only, remains outside the APK, and is checked against a pinned SHA-256 before loading. Inference initially uses CPU. The app blocks model loading unless at least 2.8 GB RAM is currently available; this is a conservative safety gate, not proof that the model will run on the Tab A9. The model has not yet been downloaded or benchmarked on the physical tablet. See [offline model evaluation](docs/OFFLINE_MODEL_EVALUATION.md).
 
@@ -75,7 +80,7 @@ Android Studio, JDK 17, Android SDK Platform 35, Kotlin 2.4.21, and Gradle sync.
 - Require confirmation for destructive or externally visible actions.
 - Never put API keys in source code or commit them to Git.
 - Do not execute arbitrary model-generated shell commands.
-- Keep an inspectable local action history and user-controlled data deletion.
+- Keep an inspectable local action history with data minimization and user-controlled deletion.
 - Treat model output as untrusted; verify tool results independently.
 
 ## Roadmap
@@ -83,6 +88,6 @@ Android Studio, JDK 17, Android SDK Platform 35, Kotlin 2.4.21, and Gradle sync.
 2. Live-test the OpenAI-compatible provider using a configured test account.
 3. Evaluate small quantized offline models against real RAM/latency limits.
 4. Test speech recognition and text-to-speech on the Tab A9; then investigate wake-word feasibility.
-5. Expand the narrowly scoped Android tool registry and add a persistent action audit trail.
+5. Expand the narrowly scoped Android tool registry and test the persistent action audit trail on-device.
 6. Extend the one-action online proposal flow into bounded multi-step plans with per-step approval, verification, retries, and recovery.
 7. Run integration, offline, permission, battery, and physical-device tests before calling the app complete.

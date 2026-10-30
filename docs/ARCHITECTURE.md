@@ -9,7 +9,7 @@ Jetpack Compose UI (MainActivity)
   ├── OfflineModelRunner
   │     └── LiteRT-LM CPU engine + Qwen3-0.6B model file
   ├── ChatHistoryStore
-  │     └── SQLite chat history + explicit local memory facts
+  │     └── SQLite chat history + explicit memory facts + bounded action audit events
   ├── ProviderCredentialStore
   │     └── Android Keystore AES-GCM encrypted API key
   ├── SpeechRecognizer + TextToSpeech
@@ -29,6 +29,7 @@ Jetpack Compose UI (MainActivity)
 - Dialer handoff uses ACTION_DIAL only; it never places a phone call or requests call permission.
 - The policy module does not execute shell commands or arbitrary model-generated code.
 - The tool-risk policy gates the first Android action executor. Direct local commands are explicitly user-entered; AI-proposed actions require a separate approval dialog.
+- The SQLite action audit log stores only action category, outcome, and timestamp (not URL, search query, or phone number), keeps at most 100 events, and can be inspected or cleared by the user.
 - Offline inference has no silent cloud fallback.
 - Provider endpoints must use HTTPS. API keys are encrypted with an Android Keystore AES-GCM key.
 - Chat and memory facts remain local in SQLite. Current memory recall is keyword matching, not semantic/vector retrieval.
@@ -46,7 +47,7 @@ Jetpack Compose UI (MainActivity)
 1. Expand the typed Android tool registry with more narrowly scoped actions, cancellation, and persistent audit records.
 2. Add approval screens for sensitive or destructive operations before registering those tools.
 3. Add a bounded planner/executor/verifier loop that can call only registered tools and must verify tool results.
-4. Add user-managed memory inspection/export/deletion and improve retrieval only after tests and device-performance evaluation.
+4. Add user-managed memory export and improve retrieval only after tests and device-performance evaluation. Current memory inspection and deletion commands are implemented.
 5. Test push-to-talk, TTS, provider calls, browser intents, and local inference on the SM-X110.
 6. Evaluate whether a visible foreground wake-word service is practical and appropriate on this tablet.
 7. Run automated, integration, offline, permission, and physical-device tests before claiming completion.
