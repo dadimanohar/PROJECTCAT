@@ -317,9 +317,10 @@ private fun JarvisHome(
                         }
                     ) { Text("Clear failed download") }
                 } else {
-                    TextButton(onClick = {
+                    TextButton(
+                        enabled = !offlineState.ready && !offlineState.loading && !offlineState.busy,
+                        onClick = {
                         useOfflineModel = false
-                        offlineRunner.unload()
                         modelStore.deleteModel()
                         modelVerified = false
                         downloadId = null
