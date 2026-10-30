@@ -6,7 +6,7 @@
 Jarvis is intended to be a local-first Android assistant with an online/offline intelligence layer, voice interaction, persistent memory, permission-controlled Android tools, and verifiable agent workflows.
 
 ## Honest status
-The Android foundation, online-provider implementation, push-to-talk voice layer, SQLite-backed chat history, and explicit local memory facts are committed. Jarvis is **not** a completed application and is **not** evidence of AGI. The previous build passed for commit f52457a1; the current database and memory changes are awaiting a fresh CI run. Physical-device testing and live provider testing remain outstanding.
+The Android foundation, online-provider implementation, push-to-talk voice layer, SQLite-backed chat history, explicit local memory facts, and first LiteRT-LM offline-model integration are committed. Jarvis is **not** a completed application and is **not** evidence of AGI. CI passed the database and memory changes at commit 2a255006. The LiteRT-LM integration and Kotlin 2.4.21 upgrade are undergoing a fresh build; device-level model testing remains outstanding.
 
 ### Implemented in this foundation
 - Kotlin + Jetpack Compose Android app structure.
@@ -16,13 +16,17 @@ The Android foundation, online-provider implementation, push-to-talk voice layer
 - User-confirmed clear-history action that deletes locally stored messages.
 - Explicit offline memory facts with `/remember`, keyword `/recall`, and exact `/forget` commands.
 - Memory fact validation (1–500 characters), whitespace normalization, and duplicate replacement.
+- LiteRT-LM 0.18.1 runtime integration for an optional local Qwen3-0.6B model.
+- Wi-Fi-only in-app model download, size checks, SHA-256 verification, and CPU-only inference runner.
+- Explicit offline-mode selection with no silent online fallback.
+- 2.8 GB available-RAM safety gate before model loading.
 - Small deterministic local command router.
 - Explicit response when a requested operation is not implemented; no fake device actions.
 - Initial tool-risk policy that blocks sensitive/destructive tool requests pending explicit approval.
 - Unit tests for chat-history retention, memory-fact validation, provider endpoint validation, and tool approval policy (executed by GitHub Actions; latest changes are undergoing a fresh run).
 
 ### Not yet implemented
-- Local/offline model runtime and performance validation on the Tab A9.
+- Actual model download, inference, speed, thermal, battery, and stability validation on the Tab A9 (integration code is present, but device behavior is unverified).
 - Semantic/vector memory retrieval (current explicit memory recall uses keyword matching, not embeddings or semantic similarity).
 - Always-on wake phrase and background microphone service (not implemented; push-to-talk only).
 - Android app/device automation and permission/approval flows.
@@ -38,11 +42,14 @@ The current voice feature is push-to-talk. Android asks for microphone permissio
 - `/forget <exact fact>` deletes one exact saved fact.
 - `/remember`, `/recall`, and `/forget` are handled on-device and do not call the online model. Retrieval is keyword-based, not semantic.
 
+## Offline model setup
+Jarvis can download the standard Qwen3-0.6B LiteRT-LM artifact (614 MB) from Hugging Face after the user taps Download model. The download is Wi-Fi-only, remains outside the APK, and is checked against a pinned SHA-256 before loading. Inference initially uses CPU. The app blocks model loading unless at least 2.8 GB RAM is currently available; this is a conservative safety gate, not proof that the model will run on the Tab A9. The model has not yet been downloaded or benchmarked on the physical tablet. See [offline model evaluation](docs/OFFLINE_MODEL_EVALUATION.md).
+
 ## Online provider setup
 In the app, enter an HTTPS OpenAI-compatible API base URL, model name, and optional API key, then save the provider. The key is encrypted with an Android Keystore AES-GCM key and is not stored in source control. The first provider implementation uses the standard `/chat/completions` endpoint and non-streaming responses. Provider compatibility still needs live testing.
 
 ## Build prerequisites
-Android Studio, JDK 17, Android SDK Platform 35, and Gradle sync. Open this repository as a project and run the `app` configuration on an Android device or emulator. CI is being used to verify compilation and packaging; wait for a successful workflow before treating the APK as build-verified.
+Android Studio, JDK 17, Android SDK Platform 35, Kotlin 2.4.21, and Gradle sync. Open this repository as a project and run the `app` configuration on an Android device or emulator. CI is being used to verify compilation and packaging; wait for a successful workflow before treating the APK as build-verified.
 
 ## Safety requirements
 - Obtain Android runtime permissions and show an ongoing notification for microphone foreground services.
