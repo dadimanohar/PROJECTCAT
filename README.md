@@ -71,6 +71,8 @@ The current voice feature is push-to-talk. Android asks for microphone permissio
 - `/forget-all` asks for a separate `/forget-all confirm` command before deleting every saved memory fact.
 - All memory commands are handled on-device and do not call the online model. Retrieval is keyword-based, not semantic.
 
+- `/remind <title> in <number> minutes|hours` is parsed and validated for a duration of 1 minute through 30 days. It currently validates the reminder request only; Android alarm scheduling/notifications are not yet implemented.
+
 ## Local memory export
 - `/export-memory` opens Android's share sheet with up to 50 explicit memory facts and up to 200 saved notes.
 - It excludes chat history and action audit records. Nothing is uploaded or shared until the user chooses a destination in Android's share sheet.
