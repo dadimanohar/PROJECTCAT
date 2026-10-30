@@ -262,7 +262,7 @@ private fun JarvisHome(
                     appendMessage("You", command)
                     val localMemoryReply = when {
                         command.startsWith("/remember", ignoreCase = true) -> {
-                            val fact = command.removePrefix("/remember").trim()
+                            val fact = command.substringAfter(' ', "").trim()
                             if (historyStore.rememberFact(fact)) {
                                 "Saved that fact in local memory on this device."
                             } else {
@@ -270,7 +270,7 @@ private fun JarvisHome(
                             }
                         }
                         command.startsWith("/recall", ignoreCase = true) -> {
-                            val query = command.removePrefix("/recall").trim()
+                            val query = command.substringAfter(' ', "").trim()
                             val matches = historyStore.searchFacts(query)
                             if (query.isBlank()) {
                                 "Provide a keyword after /recall."
@@ -281,7 +281,7 @@ private fun JarvisHome(
                             }
                         }
                         command.startsWith("/forget", ignoreCase = true) -> {
-                            val fact = command.removePrefix("/forget").trim()
+                            val fact = command.substringAfter(' ', "").trim()
                             if (fact.isBlank()) {
                                 "Provide the exact saved fact after /forget."
                             } else if (historyStore.forgetFact(fact)) {
