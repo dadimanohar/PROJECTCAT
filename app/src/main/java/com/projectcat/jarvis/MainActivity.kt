@@ -605,7 +605,7 @@ private fun JarvisHome(
                             if (notes.isEmpty()) {
                                 "There are no saved notes on this device."
                             } else {
-                                "Recent local notes:\\n" + notes.joinToString("\\n") { note ->
+                                "Recent local notes:\n" + notes.joinToString("\n") { note ->
                                     "#${note.id} — ${note.text}"
                                 }
                             }
