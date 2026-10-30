@@ -21,6 +21,7 @@ The Android foundation, online-provider implementation, push-to-talk voice layer
 - Explicit offline-mode selection with no silent online fallback.
 - 2.8 GB available-RAM safety gate before model loading.
 - Explicit local command router: `/help`, `/open https://…`, `/search …`, `/maps …`, and `/dial …`.
+- Bounded online agent proposal: `/agent <task>` requests at most one allowlisted browser/maps/dialer action and waits for an explicit approval dialog. It does not run arbitrary code or chain actions.
 - Browser and maps handoff use Android `ACTION_VIEW` chooser; URLs must be valid HTTPS and cannot contain embedded credentials. `/dial` uses `ACTION_DIAL` (not `ACTION_CALL`) and never places the call.
 - These actions are initiated only by commands typed by the user; model-generated text cannot invoke them.
 - Explicit response when a requested operation is not implemented; no fake device actions.
@@ -32,11 +33,17 @@ The Android foundation, online-provider implementation, push-to-talk voice layer
 - Semantic/vector memory retrieval (current explicit memory recall uses keyword matching, not embeddings or semantic similarity).
 - Always-on wake phrase and background microphone service (not implemented; push-to-talk only).
 - Broader Android app/device automation and permission/approval flows (the first browser handoff commands are implemented, but this is not general device control).
-- Agent planning, tool execution, verification, and recovery.
+- Multi-step agent planning, tool verification, retries, recovery, and general Android device automation. The current `/agent` path proposes one browser/maps/dialer handoff only and waits for explicit approval.
 - Physical installation and validation on the Tab A9; CI APK packaging does not prove device compatibility.
 
 ## Voice interaction
 The current voice feature is push-to-talk. Android asks for microphone permission when the user taps Speak; recognised text is placed in the composer and must be reviewed and sent by the user. Jarvis replies can be spoken using Android TextToSpeech. This does not provide a wake word or background listening, and speech service availability/language behavior must be checked on the physical tablet.
+
+## Bounded agent action proposal
+- `/agent <task>` asks the configured online provider to propose one action using a strict three-line tool format.
+- The parser accepts only HTTPS URL open, web search, map search, or a dialer handoff. Unknown tool names, malformed output, unsafe URLs, and invalid numbers are rejected.
+- Jarvis shows the goal, proposed action, and reason in an approval dialog. Nothing happens unless the user chooses **Approve and open**.
+- The offline model does not make or execute action plans. The current planner supports one action, not multi-step autonomy, web-page reading, form filling, or background work.
 
 ## Explicit local commands
 - `/help` lists the available local commands.

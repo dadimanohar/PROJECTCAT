@@ -11,6 +11,11 @@ import java.net.URI
 
 interface ChatCompletionProvider {
     suspend fun reply(history: List<ChatEntry>): String
+
+    suspend fun replyWithSystemInstruction(
+        systemInstruction: String,
+        history: List<ChatEntry>
+    ): String = reply(listOf(ChatEntry("You", systemInstruction)) + history)
 }
 
 data class ProviderSettings(
@@ -40,11 +45,28 @@ class OpenAiCompatibleProvider(
     private val settings: ProviderSettings,
     private val apiKey: String
 ) : ChatCompletionProvider {
-    override suspend fun reply(history: List<ChatEntry>): String = withContext(Dispatchers.IO) {
+    override suspend fun reply(history: List<ChatEntry>): String =
+        complete(history, systemInstruction = null)
+
+    override suspend fun replyWithSystemInstruction(
+        systemInstruction: String,
+        history: List<ChatEntry>
+    ): String {
+        require(systemInstruction.isNotBlank()) { "System instruction cannot be empty." }
+        return complete(history, systemInstruction)
+    }
+
+    private suspend fun complete(
+        history: List<ChatEntry>,
+        systemInstruction: String?
+    ): String = withContext(Dispatchers.IO) {
         val endpoint = ChatCompletionsEndpoint.from(settings.baseUrl)
         val payload = JSONObject()
             .put("model", settings.model.trim())
             .put("messages", JSONArray().apply {
+                if (!systemInstruction.isNullOrBlank()) {
+                    put(JSONObject().put("role", "system").put("content", systemInstruction))
+                }
                 history.takeLast(24).forEach { entry ->
                     val role = if (entry.role.equals("Jarvis", true)) "assistant" else "user"
                     put(JSONObject().put("role", role).put("content", entry.text))

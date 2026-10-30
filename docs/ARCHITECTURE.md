@@ -14,11 +14,11 @@ Jetpack Compose UI (MainActivity)
   │     └── Android Keystore AES-GCM encrypted API key
   ├── SpeechRecognizer + TextToSpeech
   │     └── Push-to-talk input + optional spoken replies
-  └── LocalCommandPolicy
-        ├── /help
-        ├── /open https://...
-        └── /search ...
-              └── Explicit user command → Android ACTION_VIEW chooser
+  ├── LocalCommandPolicy
+  │     ├── /open, /search, /maps, /dial
+  │     └── Explicit user command → Android action executor
+  └── AgentPlanParser
+        └── /agent → one allowlisted proposal → approval dialog → executor
 ```
 
 ## Implemented safety boundaries
@@ -28,7 +28,7 @@ Jetpack Compose UI (MainActivity)
 - Web and maps searches are URL-encoded and handed to an Android chooser; Jarvis does not scrape pages or claim it has read the results.
 - Dialer handoff uses ACTION_DIAL only; it never places a phone call or requests call permission.
 - The policy module does not execute shell commands or arbitrary model-generated code.
-- The current tool-risk policy is still only a policy checker; broader Android actions are not implemented.
+- The tool-risk policy gates the first Android action executor. Direct local commands are explicitly user-entered; AI-proposed actions require a separate approval dialog.
 - Offline inference has no silent cloud fallback.
 - Provider endpoints must use HTTPS. API keys are encrypted with an Android Keystore AES-GCM key.
 - Chat and memory facts remain local in SQLite. Current memory recall is keyword matching, not semantic/vector retrieval.
@@ -38,12 +38,12 @@ Jetpack Compose UI (MainActivity)
 
 - The offline model code is build-verified but has not been downloaded, loaded, or benchmarked on the actual SM-X110.
 - A 2.8 GB available-RAM threshold is a conservative gate, not a guarantee that the 0.6B model will fit or run smoothly.
-- Browser handoff is a small first tool. There is no general Android device automation, autonomous planner, tool executor, verifier, or recovery loop yet.
+- The current online agent planner proposes only one browser, maps, or dialer handoff. It has no multi-step planning, page reading, form filling, autonomous background execution, tool-result verification, retry, or recovery loop.
 - A successful CI build does not validate speech services, app intents, network provider compatibility, offline inference, or performance on the physical tablet.
 
 ## Next implementation sequence
 
-1. Build a typed Android tool registry with explicit inputs, execution results, cancellation, and audit records.
+1. Expand the typed Android tool registry with more narrowly scoped actions, cancellation, and persistent audit records.
 2. Add approval screens for sensitive or destructive operations before registering those tools.
 3. Add a bounded planner/executor/verifier loop that can call only registered tools and must verify tool results.
 4. Add user-managed memory inspection/export/deletion and improve retrieval only after tests and device-performance evaluation.

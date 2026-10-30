@@ -26,6 +26,10 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import com.projectcat.jarvis.ai.OfflineModelRunner
 import com.projectcat.jarvis.ai.OfflineModelStore
+import com.projectcat.jarvis.ai.AgentPlanParser
+import com.projectcat.jarvis.ai.AgentProposal
+import com.projectcat.jarvis.ai.AgentRequest
+import com.projectcat.jarvis.ai.AgentRequestPolicy
 import com.projectcat.jarvis.memory.ChatHistoryStore
 import com.projectcat.jarvis.memory.ChatEntry
 import com.projectcat.jarvis.memory.MemoryCommand
@@ -33,6 +37,7 @@ import com.projectcat.jarvis.memory.MemoryCommandPolicy
 import com.projectcat.jarvis.security.ProviderCredentialStore
 import com.projectcat.jarvis.tools.LocalCommand
 import com.projectcat.jarvis.tools.LocalCommandPolicy
+import com.projectcat.jarvis.tools.AndroidLocalActionExecutor
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -54,6 +59,7 @@ private fun JarvisHome(
     credentialStore: ProviderCredentialStore
 ) {
     val context = LocalContext.current
+    val actionExecutor = remember(context) { AndroidLocalActionExecutor(context) }
     val modelStore = remember(context) { OfflineModelStore(context) }
     val offlineRunner = remember(context) { OfflineModelRunner(context) }
     val offlineState by offlineRunner.state.collectAsState()
@@ -74,6 +80,7 @@ private fun JarvisHome(
     var speakReplies by remember { mutableStateOf(true) }
     var useOfflineModel by remember { mutableStateOf(false) }
     var showClearHistoryDialog by remember { mutableStateOf(false) }
+    var pendingAgentProposal by remember { mutableStateOf<AgentProposal?>(null) }
     var ttsReady by remember { mutableStateOf(false) }
 
     var modelVerified by remember {
@@ -404,7 +411,7 @@ private fun JarvisHome(
             enabled = !isSending,
             label = { Text(if (useOfflineModel) "Ask Jarvis offline" else "Ask Jarvis") }
         )
-        Text("Commands: /help • /open • /search • /maps • /dial • /remember • /recall • /memories • /forget • /forget-all", style = MaterialTheme.typography.bodySmall)
+        Text("Commands: /help • /agent <task> • /open • /search • /maps • /dial • /remember • /recall • /memories • /forget • /forget-all", style = MaterialTheme.typography.bodySmall)
         Text(voiceStatus, style = MaterialTheme.typography.bodySmall)
         if (showClearHistoryDialog) {
             AlertDialog(
@@ -420,6 +427,33 @@ private fun JarvisHome(
                 },
                 dismissButton = {
                     TextButton(onClick = { showClearHistoryDialog = false }) { Text("Cancel") }
+                }
+            )
+        }
+        pendingAgentProposal?.let { proposal ->
+            AlertDialog(
+                onDismissRequest = { pendingAgentProposal = null },
+                title = { Text("Approve one Jarvis action?") },
+                text = {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text("Goal: " + proposal.goal)
+                        Text("Proposed action: " + AgentPlanParser.describe(proposal.action))
+                        Text("Reason: " + proposal.reason)
+                        Text("Only this single action will be opened. Jarvis will not click buttons, submit forms, or place calls.")
+                    }
+                },
+                confirmButton = {
+                    TextButton(onClick = {
+                        val result = actionExecutor.execute(proposal.action, confirmedByUser = true)
+                        appendMessage("Jarvis", result.message)
+                        pendingAgentProposal = null
+                    }) { Text("Approve and open") }
+                },
+                dismissButton = {
+                    TextButton(onClick = {
+                        pendingAgentProposal = null
+                        appendMessage("Jarvis", "Action cancelled. Nothing was opened.")
+                    }) { Text("Cancel") }
                 }
             )
         }
@@ -451,55 +485,17 @@ private fun JarvisHome(
                             "/search <query> — open a web search in your browser.\n" +
                             "/maps <place> — open a map search.\n" +
                             "/dial <number> — open the dialer with a number prefilled; it will not place a call.\n" +
+                            "/agent <task> — prepare one supported online action for your approval.\n" +
                             "/remember <fact>, /recall <keyword>, /memories, /forget <exact fact>, /forget-all — manage local memory."
                         is LocalCommand.Invalid -> localCommand.message
-                        is LocalCommand.OpenUrl -> {
-                            try {
-                                context.startActivity(
-                                    Intent.createChooser(
-                                        Intent(Intent.ACTION_VIEW, Uri.parse(localCommand.url)),
-                                        "Open link with"
-                                    )
-                                )
-                                "Opening the requested link in an app you choose."
-                            } catch (error: Exception) {
-                                "Could not open the link: ${error.message ?: "No compatible browser is available."}"
-                            }
-                        }
-                        is LocalCommand.MapsSearch -> {
-                            try {
-                                context.startActivity(
-                                    Intent.createChooser(
-                                        Intent(Intent.ACTION_VIEW, Uri.parse(localCommand.url)),
-                                        "Find this place with"
-                                    )
-                                )
-                                "Opening the requested place in a map app you choose."
-                            } catch (error: Exception) {
-                                "Could not open maps: ${error.message ?: "No compatible map app is available."}"
-                            }
-                        }
-                        is LocalCommand.DialNumber -> {
-                            try {
-                                context.startActivity(Intent(Intent.ACTION_DIAL, Uri.parse(localCommand.uri)))
-                                "Opening the dialer with the number filled in. Review it and tap Call yourself."
-                            } catch (error: Exception) {
-                                "Could not open the dialer: ${error.message ?: "No compatible dialer is available."}"
-                            }
-                        }
-                        is LocalCommand.SearchWeb -> {
-                            try {
-                                context.startActivity(
-                                    Intent.createChooser(
-                                        Intent(Intent.ACTION_VIEW, Uri.parse(localCommand.url)),
-                                        "Search the web with"
-                                    )
-                                )
-                                "Opening your web search in an app you choose."
-                            } catch (error: Exception) {
-                                "Could not open web search: ${error.message ?: "No compatible browser is available."}"
-                            }
-                        }
+                        is LocalCommand.OpenUrl ->
+                            actionExecutor.execute(localCommand, confirmedByUser = true).message
+                        is LocalCommand.MapsSearch ->
+                            actionExecutor.execute(localCommand, confirmedByUser = true).message
+                        is LocalCommand.DialNumber ->
+                            actionExecutor.execute(localCommand, confirmedByUser = true).message
+                        is LocalCommand.SearchWeb ->
+                            actionExecutor.execute(localCommand, confirmedByUser = true).message
                     }
                     val localMemoryReply = localCommandReply ?: when (
                         val memoryCommand = MemoryCommandPolicy.parse(command)
@@ -544,7 +540,47 @@ private fun JarvisHome(
                         MemoryCommand.RequestClearAllConfirmation ->
                             "This permanently deletes all saved memory facts. To confirm, send /forget-all confirm."
                     }
-                    if (localMemoryReply != null) {
+                    val agentRequest = AgentRequestPolicy.parse(command)
+                    if (agentRequest is AgentRequest.Invalid) {
+                        appendMessage("Jarvis", agentRequest.message)
+                    } else if (agentRequest is AgentRequest.Task) {
+                        if (useOfflineModel) {
+                            appendMessage(
+                                "Jarvis",
+                                "Action planning currently requires the configured online provider. No action was taken."
+                            )
+                        } else {
+                            isSending = true
+                            scope.launch {
+                                try {
+                                    val rawPlan = credentialStore.createProvider().replyWithSystemInstruction(
+                                        AgentPlanParser.SYSTEM_INSTRUCTION,
+                                        listOf(ChatEntry("You", agentRequest.goal))
+                                    )
+                                    val proposal = AgentPlanParser.parse(agentRequest.goal, rawPlan)
+                                    if (proposal == null) {
+                                        appendMessage(
+                                            "Jarvis",
+                                            "I could not produce a valid action from the supported tool list. No action was taken."
+                                        )
+                                    } else {
+                                        pendingAgentProposal = proposal
+                                        appendMessage(
+                                            "Jarvis",
+                                            "I prepared one action for your review: " + AgentPlanParser.describe(proposal.action) + ". Nothing has been launched yet."
+                                        )
+                                    }
+                                } catch (error: Exception) {
+                                    appendMessage(
+                                        "Jarvis",
+                                        "Could not prepare an action plan: " + (error.message ?: "Unknown provider error") + ". No action was taken."
+                                    )
+                                } finally {
+                                    isSending = false
+                                }
+                            }
+                        }
+                    } else if (localMemoryReply != null) {
                         appendMessage("Jarvis", localMemoryReply)
                     } else {
                         val requestHistory = messages.takeLast(24)
