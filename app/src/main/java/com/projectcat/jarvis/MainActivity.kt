@@ -26,6 +26,7 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import com.projectcat.jarvis.ai.OfflineModelRunner
 import com.projectcat.jarvis.ai.OfflineModelStore
+import com.projectcat.jarvis.ai.PromptSendPolicy
 import com.projectcat.jarvis.ai.AgentPlanParser
 import com.projectcat.jarvis.ai.AgentProposal
 import com.projectcat.jarvis.ai.AgentRequest
@@ -492,7 +493,7 @@ private fun JarvisHome(
                 modifier = Modifier.weight(1f)
             ) { Text("🎙 Speak") }
             Button(
-                enabled = !isSending && prompt.isNotBlank() && (!useOfflineModel || offlineState.ready),
+                enabled = PromptSendPolicy.canSend(prompt, isSending, useOfflineModel, offlineState.ready),
                 onClick = {
                     val command = prompt.trim()
                     prompt = ""
