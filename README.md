@@ -6,12 +6,14 @@
 Jarvis is intended to be a local-first Android assistant with an online/offline intelligence layer, voice interaction, persistent memory, permission-controlled Android tools, and verifiable agent workflows.
 
 ## Honest status
-The Android foundation, online-provider implementation, and first push-to-talk voice layer are committed. Jarvis is **not** a completed application and is **not** evidence of AGI. GitHub Actions has successfully run the unit-test task, built a debug APK, and uploaded the APK artifact for commit f52457a1. Physical-device testing and live provider testing remain outstanding.
+The Android foundation, online-provider implementation, push-to-talk voice layer, and SQLite-backed chat-history upgrade are committed. Jarvis is **not** a completed application and is **not** evidence of AGI. The prior GitHub Actions run passed unit tests and debug APK packaging for commit f52457a1. The current SQLite changes are awaiting a fresh CI run. Physical-device testing and live provider testing remain outstanding.
 
 ### Implemented in this foundation
 - Kotlin + Jetpack Compose Android app structure.
 - Basic chat-style screen.
-- Local conversation history using Android SharedPreferences (bounded to the latest 300 messages).
+- Local conversation history using SQLite (bounded to the latest 300 valid messages).
+- One-time migration of existing SharedPreferences chat history into SQLite.
+- User-confirmed clear-history action that deletes locally stored messages.
 - Small deterministic local command router.
 - Explicit response when a requested operation is not implemented; no fake device actions.
 - Initial tool-risk policy that blocks sensitive/destructive tool requests pending explicit approval.
@@ -24,11 +26,11 @@ The Android foundation, online-provider implementation, and first push-to-talk v
 - Optional text-to-speech for Jarvis replies, with a user-controlled toggle.
 - Android 11+ package visibility queries for speech recognition and TTS services.
 - Local/offline model runtime and performance validation on the Tab A9.
-- Semantic long-term memory, retrieval, and user-facing memory management (basic chat history is implemented; richer memory remains pending).
+- Semantic long-term memory, retrieval, and cross-conversation user facts (not implemented; current memory is conversation history only).
 - Always-on wake phrase and background microphone service (not implemented; push-to-talk only).
 - Android app/device automation and permission/approval flows.
 - Agent planning, tool execution, verification, and recovery.
-- GitHub Actions workflow committed to run unit tests and build/upload a debug APK. Initial run failed at Kotlin compilation because Java and Kotlin JVM targets differed; both are now configured for Java 17 and the rerun is pending.
+- GitHub Actions workflow runs unit tests and builds/uploads a debug APK. Previous successful run: [GitHub Actions run 41021188956](https://github.com/dadimanohar/PROJECTCAT/actions/runs/41021188956). The latest SQLite changes require a new run.
 - APK installation and physical-device validation.
 
 ## Voice interaction
@@ -49,7 +51,7 @@ Android Studio, JDK 17, Android SDK Platform 35, and Gradle sync. Open this repo
 - Treat model output as untrusted; verify tool results independently.
 
 ## Roadmap
-1. Add local database-backed chat and memory.
+1. Add semantic long-term memory and retrieval on top of local chat history.
 2. Live-test the OpenAI-compatible provider using a configured test account.
 3. Evaluate small quantized offline models against real RAM/latency limits.
 4. Test speech recognition and text-to-speech on the Tab A9; then investigate wake-word feasibility.
