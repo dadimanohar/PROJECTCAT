@@ -72,7 +72,7 @@ The current voice feature is push-to-talk. Android asks for microphone permissio
 - All memory commands are handled on-device and do not call the online model. Retrieval is keyword-based, not semantic.
 
 ## Local memory export
-- `/export-memory` opens Android's share sheet with up to 50 explicit memory facts and 200 saved notes.
+- `/export-memory` opens Android's share sheet with up to 50 explicit memory facts and up to 50 saved notes.
 - It excludes chat history and action audit records. Nothing is uploaded or shared until the user chooses a destination in Android's share sheet.
 
 ## Local notes
