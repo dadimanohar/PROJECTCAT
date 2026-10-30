@@ -27,7 +27,7 @@ The Android foundation, online-provider implementation, push-to-talk voice layer
 - Direct local actions are initiated by commands typed by the user. In `/agent` mode, raw model text is never executed: the proposal is parsed against the allowlist and a separate approval dialog is required.
 - Explicit response when a requested operation is not implemented; no fake device actions.
 - Tool-risk policy and a typed Android action executor for supported browser, maps, and dialer handoffs; the AI planner cannot execute anything until the approval dialog is accepted.
-- Privacy-minimized SQLite action audit history with 100-entry retention, `/action-log` inspection, and confirmed clearing.
+- Privacy-minimized SQLite action audit history for direct user-entered and approved agent handoffs, with 100-entry retention, `/action-log` inspection, and confirmed clearing.
 - Unit tests for chat-history retention, memory-fact validation, provider endpoint validation, tool approval policy, local command validation, memory command validation, bounded agent-plan validation, and action-audit command/privacy validation (all passed in GitHub Actions run [41040534624](https://github.com/dadimanohar/PROJECTCAT/actions/runs/41040534624)).
 
 ### Not yet implemented
