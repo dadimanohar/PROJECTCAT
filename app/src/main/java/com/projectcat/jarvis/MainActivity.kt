@@ -31,6 +31,8 @@ import com.projectcat.jarvis.ai.AgentPlanParser
 import com.projectcat.jarvis.ai.AgentProposal
 import com.projectcat.jarvis.ai.AgentRequest
 import com.projectcat.jarvis.ai.AgentRequestPolicy
+import com.projectcat.jarvis.ai.StudyModeCommand
+import com.projectcat.jarvis.ai.StudyModePolicy
 import com.projectcat.jarvis.memory.ChatHistoryStore
 import com.projectcat.jarvis.memory.ChatEntry
 import com.projectcat.jarvis.memory.MemoryCommand
@@ -88,6 +90,9 @@ private fun JarvisHome(
     var voiceStatus by remember { mutableStateOf("Voice input is push-to-talk; it does not listen in the background.") }
     var speakReplies by remember { mutableStateOf(true) }
     var useOfflineModel by remember { mutableStateOf(false) }
+    var studyMode by remember {
+        mutableStateOf(context.getSharedPreferences("jarvis_settings", 0).getBoolean("study_mode", false))
+    }
     var showClearHistoryDialog by remember { mutableStateOf(false) }
     var pendingAgentProposal by remember { mutableStateOf<AgentProposal?>(null) }
     var ttsReady by remember { mutableStateOf(false) }
@@ -431,6 +436,25 @@ private fun JarvisHome(
             Text("Speak Jarvis replies")
             Switch(checked = speakReplies, onCheckedChange = { speakReplies = it })
         }
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            Column(Modifier.weight(1f)) {
+                Text("Study mode — guided tutor")
+                Text(
+                    if (useOfflineModel) "Study instructions currently require the online provider."
+                    else "Hints, one question at a time, and practice checks.",
+                    style = MaterialTheme.typography.bodySmall
+                )
+            }
+            Switch(
+                checked = studyMode,
+                enabled = !useOfflineModel,
+                onCheckedChange = { enabled ->
+                    studyMode = enabled
+                    context.getSharedPreferences("jarvis_settings", 0).edit()
+                        .putBoolean("study_mode", enabled).apply()
+                }
+            )
+        }
         LazyColumn(Modifier.weight(1f).fillMaxWidth()) {
             items(messages) { message ->
                 Card(Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
@@ -448,7 +472,7 @@ private fun JarvisHome(
             enabled = !isSending,
             label = { Text(if (useOfflineModel) "Ask Jarvis offline" else "Ask Jarvis") }
         )
-        Text("Commands: /help • /agent • /open • /search • /maps • /dial • /note • /notes • /delete-note • /remember • /recall • /memories • /forget • /forget-all • /action-log", style = MaterialTheme.typography.bodySmall)
+        Text("Commands: /help • /study on/off/status • /agent • /open • /search • /maps • /dial • /note • /notes • /delete-note • /remember • /recall • /memories • /forget • /forget-all • /action-log", style = MaterialTheme.typography.bodySmall)
         Text(voiceStatus, style = MaterialTheme.typography.bodySmall)
         if (showClearHistoryDialog) {
             AlertDialog(
@@ -544,7 +568,23 @@ private fun JarvisHome(
                         is LocalCommand.SearchWeb ->
                             performLocalAction(localCommand)
                     }
-                    val localMemoryReply = localCommandReply ?: when (
+                    val studyModeReply = when (val studyCommand = StudyModePolicy.parse(command)) {
+                        null -> null
+                        is StudyModeCommand.Invalid -> studyCommand.message
+                        StudyModeCommand.Status ->
+                            "Study mode is ${if (studyMode) "ON" else "OFF"}. It uses guided tutoring with the online provider."
+                        is StudyModeCommand.SetEnabled -> {
+                            if (studyCommand.enabled && useOfflineModel) {
+                                "Study mode currently needs the online provider. Switch off offline mode, then send /study on."
+                            } else {
+                                studyMode = studyCommand.enabled
+                                context.getSharedPreferences("jarvis_settings", 0).edit()
+                                    .putBoolean("study_mode", studyMode).apply()
+                                "Study mode turned ${if (studyMode) "ON" else "OFF"}."
+                            }
+                        }
+                    }
+                    val localMemoryReply = localCommandReply ?: studyModeReply ?: when (
                         val memoryCommand = MemoryCommandPolicy.parse(command)
                     ) {
                         null -> null
@@ -710,10 +750,15 @@ private fun JarvisHome(
                         isSending = true
                         scope.launch {
                             try {
-                                val response = if (useOfflineModel) {
-                                    offlineRunner.generate(command)
-                                } else {
-                                    credentialStore.createProvider().reply(requestHistory)
+                                val response = when {
+                                    useOfflineModel && studyMode ->
+                                        "Study mode needs the online provider because the offline runner does not yet accept a separate tutor instruction. Switch to online mode to continue guided learning."
+                                    useOfflineModel -> offlineRunner.generate(command)
+                                    studyMode -> credentialStore.createProvider().replyWithSystemInstruction(
+                                        StudyModePolicy.SYSTEM_INSTRUCTION,
+                                        requestHistory
+                                    )
+                                    else -> credentialStore.createProvider().reply(requestHistory)
                                 }
                                 appendMessage("Jarvis", response)
                                 if (speakReplies && ttsReady) {
