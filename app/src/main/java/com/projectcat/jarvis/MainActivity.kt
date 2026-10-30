@@ -11,8 +11,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.projectcat.jarvis.memory.ChatHistoryStore
-
-private data class Message(val role: String, val text: String)
+import com.projectcat.jarvis.memory.ChatEntry
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -27,12 +26,12 @@ private fun JarvisHome(historyStore: ChatHistoryStore) {
     var prompt by remember { mutableStateOf("") }
     var messages by remember {
         mutableStateOf(historyStore.load().ifEmpty {
-            listOf(Message("Jarvis", "Jarvis foundation is running. AI providers and device tools are not connected yet."))
+            listOf(ChatEntry("Jarvis", "Jarvis foundation is running. AI providers and device tools are not connected yet."))
         })
     }
 
     fun appendMessage(role: String, text: String) {
-        val updated = messages + Message(role, text)
+        val updated = messages + ChatEntry(role, text)
         messages = updated
         historyStore.save(updated)
     }
@@ -62,8 +61,8 @@ private fun JarvisHome(historyStore: ChatHistoryStore) {
             Button(onClick = {
                 val command = prompt.trim()
                 if (command.isNotEmpty()) {
-                    appendMessage("You", command)
-                    appendMessage("Jarvis", localReply(command))
+                    appendChatEntry("You", command)
+                    appendChatEntry("Jarvis", localReply(command))
                     prompt = ""
                 }
             }, modifier = Modifier.weight(1f)) { Text("Send") }
