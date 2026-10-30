@@ -10,21 +10,31 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.projectcat.jarvis.memory.ChatHistoryStore
 
 private data class Message(val role: String, val text: String)
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContent { MaterialTheme { JarvisHome() } }
+        val historyStore = ChatHistoryStore(applicationContext)
+        setContent { MaterialTheme { JarvisHome(historyStore) } }
     }
 }
 
 @Composable
-private fun JarvisHome() {
+private fun JarvisHome(historyStore: ChatHistoryStore) {
     var prompt by remember { mutableStateOf("") }
     var messages by remember {
-        mutableStateOf(listOf(Message("Jarvis", "Jarvis foundation is running. AI providers and device tools are not connected yet.")))
+        mutableStateOf(historyStore.load().ifEmpty {
+            listOf(Message("Jarvis", "Jarvis foundation is running. AI providers and device tools are not connected yet."))
+        })
+    }
+
+    fun appendMessage(role: String, text: String) {
+        val updated = messages + Message(role, text)
+        messages = updated
+        historyStore.save(updated)
     }
 
     Column(Modifier.fillMaxSize().padding(16.dp)) {
@@ -48,19 +58,25 @@ private fun JarvisHome() {
             label = { Text("Give Jarvis a command") }
         )
         Spacer(Modifier.height(8.dp))
-        Button(onClick = {
-            val command = prompt.trim()
-            if (command.isNotEmpty()) {
-                messages = messages + Message("You", command) +
-                    Message("Jarvis", localReply(command))
-                prompt = ""
-            }
-        }, modifier = Modifier.fillMaxWidth()) { Text("Send") }
+        Row {
+            Button(onClick = {
+                val command = prompt.trim()
+                if (command.isNotEmpty()) {
+                    appendMessage("You", command)
+                    appendMessage("Jarvis", localReply(command))
+                    prompt = ""
+                }
+            }, modifier = Modifier.weight(1f)) { Text("Send") }
+            Spacer(Modifier.width(8.dp))
+            OutlinedButton(onClick = {
+                appendMessage("Jarvis", "Voice input is not connected yet. Use Send for now.")
+            }) { Text("Voice (planned)") }
+        }
     }
 }
 
 private fun localReply(command: String): String = when (command.lowercase()) {
     "hi", "hello", "hey jarvis" -> "Hello. I am ready. No external action was taken."
-    "help" -> "This foundation currently supports a basic chat interface only. AI, memory, voice, and device tools are not implemented yet."
+    "help" -> "This foundation currently supports a basic chat interface and locally saved conversation history. AI, voice, and device tools are not implemented yet."
     else -> "I received: \"$command\". I have not performed an action because no approved tool is connected for this request."
 }
