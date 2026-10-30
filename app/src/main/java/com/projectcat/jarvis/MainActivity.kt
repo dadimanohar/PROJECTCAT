@@ -1,20 +1,32 @@
 package com.projectcat.jarvis
 
+import android.Manifest
+import android.content.Intent
+import android.content.pm.PackageManager
 import android.os.Bundle
+import android.speech.RecognitionListener
+import android.speech.RecognizerIntent
+import android.speech.SpeechRecognizer
+import android.speech.tts.TextToSpeech
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
 import com.projectcat.jarvis.memory.ChatHistoryStore
 import com.projectcat.jarvis.memory.ChatEntry
 import com.projectcat.jarvis.security.ProviderCredentialStore
 import kotlinx.coroutines.launch
+import java.util.Locale
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -30,6 +42,7 @@ private fun JarvisHome(
     historyStore: ChatHistoryStore,
     credentialStore: ProviderCredentialStore
 ) {
+    val context = LocalContext.current
     var prompt by remember { mutableStateOf("") }
     var messages by remember {
         mutableStateOf(historyStore.load().ifEmpty {
@@ -42,7 +55,87 @@ private fun JarvisHome(
     var apiKey by remember { mutableStateOf("") }
     var settingsMessage by remember { mutableStateOf("API key is stored encrypted on this device.") }
     var isSending by remember { mutableStateOf(false) }
+    var voiceStatus by remember { mutableStateOf("Voice input is push-to-talk; it does not listen in the background.") }
+    var speakReplies by remember { mutableStateOf(true) }
+    var ttsReady by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
+
+    val textToSpeech = remember(context) {
+        TextToSpeech(context) { status -> ttsReady = status == TextToSpeech.SUCCESS }
+    }
+    DisposableEffect(textToSpeech) {
+        onDispose {
+            textToSpeech.stop()
+            textToSpeech.shutdown()
+        }
+    }
+    LaunchedEffect(ttsReady) {
+        if (ttsReady) textToSpeech.language = Locale.getDefault()
+    }
+
+    val speechRecognizer = remember(context) {
+        if (SpeechRecognizer.isRecognitionAvailable(context)) {
+            SpeechRecognizer.createSpeechRecognizer(context)
+        } else null
+    }
+    DisposableEffect(speechRecognizer) {
+        if (speechRecognizer != null) {
+            speechRecognizer.setRecognitionListener(object : RecognitionListener {
+                override fun onReadyForSpeech(params: Bundle?) { voiceStatus = "Listening… speak now." }
+                override fun onBeginningOfSpeech() { voiceStatus = "Listening…" }
+                override fun onRmsChanged(rmsdB: Float) {}
+                override fun onBufferReceived(buffer: ByteArray?) {}
+                override fun onEndOfSpeech() { voiceStatus = "Processing speech…" }
+                override fun onError(error: Int) {
+                    voiceStatus = when (error) {
+                        SpeechRecognizer.ERROR_NO_MATCH -> "No speech recognised. Try again."
+                        SpeechRecognizer.ERROR_NETWORK -> "Speech service network error. Check the device speech service."
+                        SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS -> "Microphone permission is required."
+                        SpeechRecognizer.ERROR_RECOGNIZER_BUSY -> "Speech recogniser is busy. Try again shortly."
+                        else -> "Speech recognition failed (code $error)."
+                    }
+                }
+                override fun onResults(results: Bundle?) {
+                    val spoken = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.firstOrNull()
+                    if (!spoken.isNullOrBlank()) {
+                        prompt = spoken
+                        voiceStatus = "Speech added to the message. Review it, then press Send."
+                    } else {
+                        voiceStatus = "No speech recognised. Try again."
+                    }
+                }
+                override fun onPartialResults(partialResults: Bundle?) {}
+                override fun onEvent(eventType: Int, params: Bundle?) {}
+            })
+        } else {
+            voiceStatus = "Speech recognition is not available on this device."
+        }
+        onDispose { speechRecognizer?.destroy() }
+    }
+
+    fun startListening() {
+        val recognizer = speechRecognizer
+        if (recognizer == null) {
+            voiceStatus = "Speech recognition is not available on this device."
+            return
+        }
+        val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.getDefault().toLanguageTag())
+            putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, false)
+        }
+        try {
+            recognizer.startListening(intent)
+        } catch (error: Exception) {
+            voiceStatus = "Could not start speech recognition: ${error.message ?: "unknown error"}"
+        }
+    }
+
+    val microphonePermission = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (granted) startListening() else voiceStatus = "Microphone permission denied. Voice input remains disabled."
+    }
 
     fun appendMessage(role: String, text: String) {
         val updated = messages + ChatEntry(role, text)
@@ -92,7 +185,7 @@ private fun JarvisHome(
                     OutlinedButton(onClick = {
                         credentialStore.clearCredentials()
                         apiKey = ""
-                        settingsMessage = "Saved API key cleared. Provider may still work if it does not require a key."
+                        settingsMessage = "Saved API key cleared."
                     }) { Text("Clear key") }
                 }
                 Text(settingsMessage, style = MaterialTheme.typography.bodySmall)
@@ -100,6 +193,10 @@ private fun JarvisHome(
             }
         }
         Spacer(Modifier.height(8.dp))
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            Text("Speak Jarvis replies")
+            Switch(checked = speakReplies, onCheckedChange = { speakReplies = it })
+        }
         LazyColumn(Modifier.weight(1f).fillMaxWidth()) {
             items(messages) { message ->
                 Card(Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
@@ -117,30 +214,49 @@ private fun JarvisHome(
             enabled = !isSending,
             label = { Text("Ask Jarvis") }
         )
+        Text(voiceStatus, style = MaterialTheme.typography.bodySmall)
         Spacer(Modifier.height(8.dp))
-        Button(
-            enabled = !isSending && prompt.isNotBlank(),
-            onClick = {
-                val command = prompt.trim()
-                prompt = ""
-                appendMessage("You", command)
-                val requestHistory = messages.takeLast(24)
-                isSending = true
-                scope.launch {
-                    try {
-                        val response = credentialStore.createProvider().reply(requestHistory)
-                        appendMessage("Jarvis", response)
-                    } catch (error: Exception) {
-                        appendMessage(
-                            "Jarvis",
-                            "AI request failed: ${error.message ?: "Unknown provider error"}. Check your connection and provider settings."
-                        )
-                    } finally {
-                        isSending = false
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedButton(
+                enabled = !isSending,
+                onClick = {
+                    if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) ==
+                        PackageManager.PERMISSION_GRANTED
+                    ) {
+                        startListening()
+                    } else {
+                        microphonePermission.launch(Manifest.permission.RECORD_AUDIO)
                     }
-                }
-            },
-            modifier = Modifier.fillMaxWidth()
-        ) { Text(if (isSending) "Thinking…" else "Send") }
+                },
+                modifier = Modifier.weight(1f)
+            ) { Text("🎙 Speak") }
+            Button(
+                enabled = !isSending && prompt.isNotBlank(),
+                onClick = {
+                    val command = prompt.trim()
+                    prompt = ""
+                    appendMessage("You", command)
+                    val requestHistory = messages.takeLast(24)
+                    isSending = true
+                    scope.launch {
+                        try {
+                            val response = credentialStore.createProvider().reply(requestHistory)
+                            appendMessage("Jarvis", response)
+                            if (speakReplies && ttsReady) {
+                                textToSpeech.speak(response, TextToSpeech.QUEUE_FLUSH, null, "jarvis_reply")
+                            }
+                        } catch (error: Exception) {
+                            appendMessage(
+                                "Jarvis",
+                                "AI request failed: ${error.message ?: "Unknown provider error"}. Check your connection and provider settings."
+                            )
+                        } finally {
+                            isSending = false
+                        }
+                    }
+                },
+                modifier = Modifier.weight(1f)
+            ) { Text(if (isSending) "Thinking…" else "Send") }
+        }
     }
 }
