@@ -7,6 +7,7 @@ import org.json.JSONArray
 
 data class ChatEntry(val role: String, val text: String)
 data class ActionAuditEntry(val actionKey: String, val outcome: String, val createdAt: Long)
+data class LocalNote(val id: Long, val text: String, val createdAt: Long)
 
 object ActionAuditPolicy {
     const val HANDED_OFF = "handed_off"
@@ -172,6 +173,57 @@ class ChatHistoryStore(context: Context) {
     }
 
     @Synchronized
+    fun addNote(text: String): Long {
+        val clean = LocalNotePolicy.validate(text) ?: return -1L
+        val values = android.content.ContentValues().apply {
+            put(COLUMN_NOTE_TEXT, clean)
+            put(COLUMN_CREATED_AT, System.currentTimeMillis())
+        }
+        val db = helper.writableDatabase
+        val id = db.insert(TABLE_NOTES, null, values)
+        if (id == -1L) return -1L
+        db.execSQL(
+            "DELETE FROM $TABLE_NOTES WHERE $COLUMN_NOTE_ID NOT IN " +
+                "(SELECT $COLUMN_NOTE_ID FROM $TABLE_NOTES ORDER BY $COLUMN_NOTE_ID DESC LIMIT ${LocalNotePolicy.MAX_NOTES})"
+        )
+        return id
+    }
+
+    @Synchronized
+    fun listNotes(limit: Int = 30): List<LocalNote> {
+        val results = mutableListOf<LocalNote>()
+        helper.readableDatabase.query(
+            TABLE_NOTES,
+            arrayOf(COLUMN_NOTE_ID, COLUMN_NOTE_TEXT, COLUMN_CREATED_AT),
+            null,
+            null,
+            null,
+            null,
+            "$COLUMN_NOTE_ID DESC",
+            limit.coerceIn(1, 50).toString()
+        ).use { cursor ->
+            while (cursor.moveToNext()) {
+                results += LocalNote(
+                    id = cursor.getLong(0),
+                    text = cursor.getString(1),
+                    createdAt = cursor.getLong(2)
+                )
+            }
+        }
+        return results
+    }
+
+    @Synchronized
+    fun deleteNote(noteId: Long): Boolean {
+        if (noteId <= 0L) return false
+        return helper.writableDatabase.delete(
+            TABLE_NOTES,
+            "$COLUMN_NOTE_ID = ?",
+            arrayOf(noteId.toString())
+        ) > 0
+    }
+
+    @Synchronized
     fun recordActionAudit(actionKey: String, outcome: String): Boolean {
         if (!ActionAuditPolicy.isValid(actionKey, outcome)) return false
         val values = android.content.ContentValues().apply {
@@ -270,11 +322,13 @@ class ChatHistoryStore(context: Context) {
             db.execSQL("CREATE INDEX idx_chat_created_at ON $TABLE_MESSAGES ($COLUMN_ID)")
             createFactsTable(db)
             createActionAuditTable(db)
+            createNotesTable(db)
         }
 
         override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
             if (oldVersion < 2) createFactsTable(db)
             if (oldVersion < 3) createActionAuditTable(db)
+            if (oldVersion < 4) createNotesTable(db)
         }
 
         private fun createActionAuditTable(db: SQLiteDatabase) {
@@ -284,6 +338,18 @@ class ChatHistoryStore(context: Context) {
                     $COLUMN_ACTION_ID INTEGER PRIMARY KEY AUTOINCREMENT,
                     $COLUMN_ACTION_KEY TEXT NOT NULL,
                     $COLUMN_ACTION_OUTCOME TEXT NOT NULL,
+                    $COLUMN_CREATED_AT INTEGER NOT NULL
+                )
+                """.trimIndent()
+            )
+        }
+
+        private fun createNotesTable(db: SQLiteDatabase) {
+            db.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS $TABLE_NOTES (
+                    $COLUMN_NOTE_ID INTEGER PRIMARY KEY AUTOINCREMENT,
+                    $COLUMN_NOTE_TEXT TEXT NOT NULL,
                     $COLUMN_CREATED_AT INTEGER NOT NULL
                 )
                 """.trimIndent()
@@ -306,10 +372,13 @@ class ChatHistoryStore(context: Context) {
 
     private companion object {
         const val DATABASE_NAME = "jarvis_memory.db"
-        const val DATABASE_VERSION = 3
+        const val DATABASE_VERSION = 4
         const val TABLE_MESSAGES = "chat_messages"
         const val TABLE_FACTS = "memory_facts"
         const val TABLE_ACTION_AUDIT = "action_audit"
+        const val TABLE_NOTES = "local_notes"
+        const val COLUMN_NOTE_ID = "note_id"
+        const val COLUMN_NOTE_TEXT = "note_text"
         const val COLUMN_ACTION_ID = "event_id"
         const val COLUMN_ACTION_KEY = "action_key"
         const val COLUMN_ACTION_OUTCOME = "outcome"
