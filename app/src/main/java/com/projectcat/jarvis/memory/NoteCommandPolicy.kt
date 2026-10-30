@@ -53,7 +53,4 @@ object LocalNotePolicy {
         return clean.takeIf { it.isNotBlank() && it.length <= NoteCommandPolicy.MAX_NOTE_LENGTH &&
             clean.none(Char::isISOControl) }
     }
-
-    fun retainIds(idsNewestFirst: List<Long>): List<Long> =
-        idsNewestFirst.filter { it > 0L }.distinct().take(MAX_NOTES)
 }
