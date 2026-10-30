@@ -20,12 +20,11 @@ object AndroidIntentCommandPolicy {
     const val MAX_SHARE_LENGTH = 2_000
 
     private val packagePattern =
-        Regex("^[A-Za-z_][A-Za-z0-9_]*(\\\\.[A-Za-z_][A-Za-z0-9_]*)+$")
+        Regex("""^[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*)+$""")
 
-    // Deliberately excludes MIME wildcards in the type position (for example */pdf).
-    // The subtype may be a wildcard, as in image/* or */*.
+    // A wildcard is valid only in the subtype position: image/* or */*.
     private val mimePattern =
-        Regex("""^[A-Za-z0-9!#&^_.+-]+/(?:[A-Za-z0-9!#&^_.+-]+|\\*)$""")
+        Regex("""^[A-Za-z0-9!#&^_.+-]+/(?:[A-Za-z0-9!#&^_.+-]+|[*])$""")
 
     fun parse(input: String): AndroidIntentCommand? {
         val command = input.trim()
