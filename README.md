@@ -6,7 +6,7 @@
 Jarvis is intended to be a local-first Android assistant with an online/offline intelligence layer, voice interaction, persistent memory, permission-controlled Android tools, and verifiable agent workflows.
 
 ## Honest status
-The Android foundation, online-provider implementation, push-to-talk voice layer, SQLite-backed chat history, explicit local memory facts, LiteRT-LM offline-model integration, and first explicit browser, maps, and dialer tools are committed. Jarvis is **not** a completed application and is **not** evidence of AGI. Commit `7bf77bdcf14c8d220a8ba8ea3ba01d37b7966134` passed GitHub Actions run [41039734720](https://github.com/dadimanohar/PROJECTCAT/actions/runs/41039734720): unit tests passed, the debug APK built, and the `jarvis-debug-apk` artifact was uploaded. Physical-device installation, model download, and inference testing remain outstanding.
+The Android foundation, online-provider implementation, push-to-talk voice layer, SQLite-backed chat history and explicit memory controls, LiteRT-LM offline-model integration, browser/maps/dialer handoffs, a one-action approval-gated online planner, and privacy-minimized local action history are committed. Jarvis is **not** a completed application and is **not** evidence of AGI. Commit `6b96421904ae0f16b86988ae6fd015924dac1b00` passed GitHub Actions run [41040534624](https://github.com/dadimanohar/PROJECTCAT/actions/runs/41040534624): unit tests passed, the debug APK built, and the `jarvis-debug-apk` artifact was uploaded. Physical-device installation, model download, and inference testing remain outstanding.
 
 ### Implemented in this foundation
 - Kotlin + Jetpack Compose Android app structure.
@@ -25,15 +25,16 @@ The Android foundation, online-provider implementation, push-to-talk voice layer
 - Browser and maps handoff use Android `ACTION_VIEW` chooser; URLs must be valid HTTPS and cannot contain embedded credentials. `/dial` uses `ACTION_DIAL` (not `ACTION_CALL`) and never places the call.
 - Direct local actions are initiated by commands typed by the user. In `/agent` mode, raw model text is never executed: the proposal is parsed against the allowlist and a separate approval dialog is required.
 - Explicit response when a requested operation is not implemented; no fake device actions.
-- Tool-risk policy and a typed Android action executor for the supported browser, maps, and dialer handoffs; sensitive dialer handoffs require the explicit command/approval path.
-- Unit tests for chat-history retention, memory-fact validation, provider endpoint validation, tool approval policy, local command validation, memory command validation, and bounded agent-plan validation (all passed in GitHub Actions run [41039734720](https://github.com/dadimanohar/PROJECTCAT/actions/runs/41039734720)).
+- Tool-risk policy and a typed Android action executor for supported browser, maps, and dialer handoffs; the AI planner cannot execute anything until the approval dialog is accepted.
+- Privacy-minimized SQLite action audit history with 100-entry retention, `/action-log` inspection, and confirmed clearing.
+- Unit tests for chat-history retention, memory-fact validation, provider endpoint validation, tool approval policy, local command validation, memory command validation, bounded agent-plan validation, and action-audit command/privacy validation (all passed in GitHub Actions run [41040534624](https://github.com/dadimanohar/PROJECTCAT/actions/runs/41040534624)).
 
 ### Not yet implemented
 - Actual model download, inference, speed, thermal, battery, and stability validation on the Tab A9 (integration code is present, but device behavior is unverified).
 - Semantic/vector memory retrieval (current explicit memory recall uses keyword matching, not embeddings or semantic similarity).
 - Always-on wake phrase and background microphone service (not implemented; push-to-talk only).
-- Broader Android app/device automation and permission/approval flows (the first browser handoff commands are implemented, but this is not general device control).
-- Multi-step agent planning, tool verification, retries, recovery, and general Android device automation. The current `/agent` path proposes one browser/maps/dialer handoff only and waits for explicit approval.
+- General Android app/device automation and broader permission/approval flows; only browser, web-search, map-search, and dialer handoffs currently exist.
+- Multi-step agent planning, action-result verification, retries, recovery, and general Android device automation. `/agent` currently proposes one browser/maps/dialer handoff and waits for explicit approval.
 - Physical installation and validation on the Tab A9; CI APK packaging does not prove device compatibility.
 
 ## Voice interaction
@@ -51,7 +52,7 @@ The current voice feature is push-to-talk. Android asks for microphone permissio
 - `/search <query>` opens an encoded Google search URL through the Android app chooser.
 - `/maps <place>` opens an encoded Google Maps search through the Android app chooser.
 - `/dial <number>` opens the dialer with a validated number prefilled; the user must review and tap Call.
-- These commands run only when typed by the user. Jarvis does not execute command-like text generated by the model.
+- Direct local commands run only when typed by the user. In `/agent` mode, model output is parsed against the allowlist and must be approved in a separate dialog.
 
 ## Local memory commands
 - `/remember <fact>` stores an explicit fact locally (maximum 500 characters).
@@ -73,7 +74,7 @@ Jarvis can download the standard Qwen3-0.6B LiteRT-LM artifact (614 MB) from Hug
 In the app, enter an HTTPS OpenAI-compatible API base URL, model name, and optional API key, then save the provider. The key is encrypted with an Android Keystore AES-GCM key and is not stored in source control. The first provider implementation uses the standard `/chat/completions` endpoint and non-streaming responses. Provider compatibility still needs live testing.
 
 ## Build prerequisites
-Android Studio, JDK 17, Android SDK Platform 35, Kotlin 2.4.21, and Gradle sync. Open this repository as a project and run the `app` configuration on an Android device or emulator. The current source commit was build-verified by GitHub Actions run [41039734720](https://github.com/dadimanohar/PROJECTCAT/actions/runs/41039734720). Its debug artifact is a debug build, not a Play Store release.
+Android Studio, JDK 17, Android SDK Platform 35, Kotlin 2.4.21, and Gradle sync. Open this repository as a project and run the `app` configuration on an Android device or emulator. The current source commit was build-verified by GitHub Actions run [41040534624](https://github.com/dadimanohar/PROJECTCAT/actions/runs/41040534624). Its debug artifact is a debug build, not a Play Store release.
 
 ## Safety requirements
 - Obtain Android runtime permissions and show an ongoing notification for microphone foreground services.

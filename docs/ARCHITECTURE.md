@@ -44,7 +44,7 @@ Jetpack Compose UI (MainActivity)
 
 ## Next implementation sequence
 
-1. Expand the typed Android tool registry with more narrowly scoped actions, cancellation, and persistent audit records.
+1. Expand the typed Android tool registry with more narrowly scoped actions while preserving cancellation, approval, and privacy-minimized audit records.
 2. Add approval screens for sensitive or destructive operations before registering those tools.
 3. Add a bounded planner/executor/verifier loop that can call only registered tools and must verify tool results.
 4. Add user-managed memory export and improve retrieval only after tests and device-performance evaluation. Current memory inspection and deletion commands are implemented.
