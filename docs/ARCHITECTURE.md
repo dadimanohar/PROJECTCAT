@@ -31,7 +31,7 @@ Jetpack Compose UI (MainActivity)
 - Dialer handoff uses ACTION_DIAL only; it never places a phone call or requests call permission.
 - The policy module does not execute shell commands or arbitrary model-generated code.
 - The tool-risk policy gates the first Android action executor. Direct local commands are explicitly user-entered; AI-proposed actions require a separate approval dialog.
-- The SQLite action audit log stores only action category, outcome, and timestamp (not URL, search query, or phone number), keeps at most 100 events, and can be inspected or cleared by the user.
+- The SQLite action audit log records direct user-entered browser, web-search, maps, and dialer handoffs as well as approved agent handoffs. It stores only action category, outcome, and timestamp (not URL, search query, or phone number), keeps at most 100 events, and can be inspected or cleared by the user.
 - Offline inference has no silent cloud fallback. Local command submission remains available even if the offline model has not loaded.
 - Provider endpoints must use HTTPS. API keys are encrypted with an Android Keystore AES-GCM key.
 - Chat and memory facts remain local in SQLite. Current memory recall is keyword matching, not semantic/vector retrieval.
