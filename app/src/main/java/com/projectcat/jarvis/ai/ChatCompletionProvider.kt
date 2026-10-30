@@ -7,6 +7,7 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
+import java.net.URI
 
 interface ChatCompletionProvider {
     suspend fun reply(history: List<ChatEntry>): String
@@ -20,10 +21,17 @@ data class ProviderSettings(
 /** Normalizes both a provider base URL and a full chat-completions URL. */
 object ChatCompletionsEndpoint {
     fun from(baseUrl: String): String {
-        val clean = baseUrl.trim().trimEnd('/')
-        require(clean.startsWith("https://")) {
-            "Provider URL must use HTTPS to protect API credentials in transit."
+        val input = baseUrl.trim()
+        val uri = try { URI(input) } catch (_: Exception) {
+            throw IllegalArgumentException("Provider URL is not a valid URL.")
         }
+        require(uri.scheme.equals("https", ignoreCase = true) && !uri.host.isNullOrBlank()) {
+            "Provider URL must be a valid HTTPS URL."
+        }
+        require(uri.userInfo == null && uri.rawQuery == null && uri.rawFragment == null) {
+            "Provider URL must not contain credentials, query parameters, or fragments."
+        }
+        val clean = input.trimEnd('/')
         return if (clean.endsWith("/chat/completions")) clean else "$clean/chat/completions"
     }
 }
@@ -46,6 +54,7 @@ class OpenAiCompatibleProvider(
             requestMethod = "POST"
             connectTimeout = 15_000
             readTimeout = 60_000
+            instanceFollowRedirects = false
             doOutput = true
             setRequestProperty("Content-Type", "application/json")
             setRequestProperty("Accept", "application/json")
