@@ -42,6 +42,7 @@ import com.projectcat.jarvis.memory.ActionAuditCommandPolicy
 import com.projectcat.jarvis.memory.ActionAuditPolicy
 import com.projectcat.jarvis.memory.NoteCommand
 import com.projectcat.jarvis.memory.NoteCommandPolicy
+import com.projectcat.jarvis.memory.LocalMemoryExportPolicy
 import com.projectcat.jarvis.security.ProviderCredentialStore
 import com.projectcat.jarvis.tools.LocalCommand
 import com.projectcat.jarvis.tools.LocalCommandPolicy
@@ -472,7 +473,7 @@ private fun JarvisHome(
             enabled = !isSending,
             label = { Text(if (useOfflineModel) "Ask Jarvis offline" else "Ask Jarvis") }
         )
-        Text("Commands: /help • /study on/off/status • /agent • /open • /search • /maps • /dial • /note • /notes • /delete-note • /remember • /recall • /memories • /forget • /forget-all • /action-log", style = MaterialTheme.typography.bodySmall)
+        Text("Commands: /help • /study on/off/status • /agent • /open • /search • /maps • /dial • /note • /notes • /delete-note • /remember • /recall • /memories • /forget • /forget-all • /export-memory • /action-log", style = MaterialTheme.typography.bodySmall)
         Text(voiceStatus, style = MaterialTheme.typography.bodySmall)
         if (showClearHistoryDialog) {
             AlertDialog(
@@ -556,6 +557,7 @@ private fun JarvisHome(
                             "/dial <number> — open the dialer with a number prefilled; it will not place a call.\n" +
                             "/agent <task> — prepare one supported online action for your approval.\n" +
                             "/remember <fact>, /recall <keyword>, /memories, /forget <exact fact>, /forget-all — manage local memory.\n" +
+                            "/export-memory — share an export of saved facts and notes only.\n" +
                             "/note <text> and /notes — save and list local notes; /delete-note <id> requires a second confirmation.\n" +
                             "/action-log — show recent Android handoffs; /clear-action-log confirm — clear that log."
                         is LocalCommand.Invalid -> localCommand.message
@@ -584,7 +586,24 @@ private fun JarvisHome(
                             }
                         }
                     }
-                    val localMemoryReply = localCommandReply ?: studyModeReply ?: when (
+                    val localExportReply = if (command == "/export-memory") {
+                        try {
+                            val exportText = LocalMemoryExportPolicy.format(
+                                historyStore.listFacts(),
+                                historyStore.listNotes(200)
+                            )
+                            val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                                type = "text/plain"
+                                putExtra(Intent.EXTRA_SUBJECT, "Jarvis local memory export")
+                                putExtra(Intent.EXTRA_TEXT, exportText)
+                            }
+                            context.startActivity(Intent.createChooser(shareIntent, "Export Jarvis memory"))
+                            "Android share sheet opened. Choose the destination yourself. The export contains saved facts and notes only—not chat history or action logs."
+                        } catch (_: Exception) {
+                            "Could not open the Android share sheet. No data was exported."
+                        }
+                    } else null
+                    val localMemoryReply = localCommandReply ?: studyModeReply ?: localExportReply ?: when (
                         val memoryCommand = MemoryCommandPolicy.parse(command)
                     ) {
                         null -> null
