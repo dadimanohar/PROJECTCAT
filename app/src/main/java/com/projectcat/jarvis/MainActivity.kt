@@ -253,6 +253,7 @@ private fun JarvisHome(
                 )
                 Text(downloadStatus, style = MaterialTheme.typography.bodySmall)
                 Text("Safety gate: loading is disabled unless at least 2.8 GB RAM is currently available.", style = MaterialTheme.typography.bodySmall)
+                TextButton(onClick = { availableRam = modelStore.availableMemoryBytes() }) { Text("Refresh RAM status") }
                 if (downloadActive) {
                     Text("Download progress: $downloadProgress%")
                 }
