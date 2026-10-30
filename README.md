@@ -11,13 +11,16 @@ This commit establishes the native Android project foundation only. It is **not*
 ### Implemented in this foundation
 - Kotlin + Jetpack Compose Android app structure.
 - Basic chat-style screen.
+- Local conversation history using Android SharedPreferences (bounded to the latest 300 messages).
 - Small deterministic local command router.
 - Explicit response when a requested operation is not implemented; no fake device actions.
+- Initial tool-risk policy that blocks sensitive/destructive tool requests pending explicit approval.
+- Unit tests for the tool approval policy (committed; not yet executed).
 
 ### Not yet implemented
 - LLM provider integration and secure credential storage.
 - Local/offline model runtime and performance validation on the Tab A9.
-- Persistent conversation and long-term memory.
+- Semantic long-term memory, retrieval, and user-facing memory management (basic chat history is implemented; richer memory remains pending).
 - Speech recognition, text-to-speech, wake phrase, and background microphone service.
 - Android app/device automation and permission/approval flows.
 - Agent planning, tool execution, verification, and recovery.
