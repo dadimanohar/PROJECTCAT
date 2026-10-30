@@ -28,6 +28,8 @@ import com.projectcat.jarvis.ai.OfflineModelRunner
 import com.projectcat.jarvis.ai.OfflineModelStore
 import com.projectcat.jarvis.memory.ChatHistoryStore
 import com.projectcat.jarvis.memory.ChatEntry
+import com.projectcat.jarvis.memory.MemoryCommand
+import com.projectcat.jarvis.memory.MemoryCommandPolicy
 import com.projectcat.jarvis.security.ProviderCredentialStore
 import com.projectcat.jarvis.tools.LocalCommand
 import com.projectcat.jarvis.tools.LocalCommandPolicy
@@ -402,7 +404,7 @@ private fun JarvisHome(
             enabled = !isSending,
             label = { Text(if (useOfflineModel) "Ask Jarvis offline" else "Ask Jarvis") }
         )
-        Text("Local commands: /help • /open https://… • /search … • /maps … • /dial … • /remember … • /recall … • /forget …", style = MaterialTheme.typography.bodySmall)
+        Text("Commands: /help • /open • /search • /maps • /dial • /remember • /recall • /memories • /forget • /forget-all", style = MaterialTheme.typography.bodySmall)
         Text(voiceStatus, style = MaterialTheme.typography.bodySmall)
         if (showClearHistoryDialog) {
             AlertDialog(
@@ -449,7 +451,7 @@ private fun JarvisHome(
                             "/search <query> — open a web search in your browser.\n" +
                             "/maps <place> — open a map search.\n" +
                             "/dial <number> — open the dialer with a number prefilled; it will not place a call.\n" +
-                            "/remember <fact>, /recall <keyword>, /forget <exact fact> — manage local memory."
+                            "/remember <fact>, /recall <keyword>, /memories, /forget <exact fact>, /forget-all — manage local memory."
                         is LocalCommand.Invalid -> localCommand.message
                         is LocalCommand.OpenUrl -> {
                             try {
@@ -499,37 +501,48 @@ private fun JarvisHome(
                             }
                         }
                     }
-                    val localMemoryReply = localCommandReply ?: when {
-                        command.startsWith("/remember", ignoreCase = true) -> {
-                            val fact = command.substringAfter(' ', "").trim()
-                            if (historyStore.rememberFact(fact)) {
+                    val localMemoryReply = localCommandReply ?: when (
+                        val memoryCommand = MemoryCommandPolicy.parse(command)
+                    ) {
+                        null -> null
+                        is MemoryCommand.Invalid -> memoryCommand.message
+                        is MemoryCommand.Remember -> {
+                            if (historyStore.rememberFact(memoryCommand.fact)) {
                                 "Saved that fact in local memory on this device."
                             } else {
                                 "Memory was not saved. Provide a fact between 1 and 500 characters."
                             }
                         }
-                        command.startsWith("/recall", ignoreCase = true) -> {
-                            val query = command.substringAfter(' ', "").trim()
-                            val matches = historyStore.searchFacts(query)
-                            if (query.isBlank()) {
-                                "Provide a keyword after /recall."
-                            } else if (matches.isEmpty()) {
+                        is MemoryCommand.Recall -> {
+                            val matches = historyStore.searchFacts(memoryCommand.query)
+                            if (matches.isEmpty()) {
                                 "No saved memory matched that keyword."
                             } else {
-                                "Saved memories:\n" + matches.joinToString("\n") { "• $it" }
+                                "Saved memories:\\n" + matches.joinToString("\\n") { "• $it" }
                             }
                         }
-                        command.startsWith("/forget", ignoreCase = true) -> {
-                            val fact = command.substringAfter(' ', "").trim()
-                            if (fact.isBlank()) {
-                                "Provide the exact saved fact after /forget."
-                            } else if (historyStore.forgetFact(fact)) {
+                        is MemoryCommand.Forget -> {
+                            if (historyStore.forgetFact(memoryCommand.fact)) {
                                 "Deleted that exact fact from local memory."
                             } else {
                                 "No exact matching saved fact was found."
                             }
                         }
-                        else -> null
+                        MemoryCommand.ListFacts -> {
+                            val facts = historyStore.listFacts()
+                            if (facts.isEmpty()) {
+                                "There are no saved memory facts on this device."
+                            } else {
+                                "Saved memory facts (latest ${facts.size}):\\n" +
+                                    facts.mapIndexed { index, fact -> "${index + 1}. $fact" }.joinToString("\\n")
+                            }
+                        }
+                        MemoryCommand.ConfirmClearAll -> {
+                            val deleted = historyStore.clearFacts()
+                            "Deleted $deleted saved memory fact(s) from this device."
+                        }
+                        MemoryCommand.RequestClearAllConfirmation ->
+                            "This permanently deletes all saved memory facts. To confirm, send /forget-all confirm."
                     }
                     if (localMemoryReply != null) {
                         appendMessage("Jarvis", localMemoryReply)

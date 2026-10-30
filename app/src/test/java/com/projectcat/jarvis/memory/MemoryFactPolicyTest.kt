@@ -24,6 +24,11 @@ class MemoryFactPolicyTest {
     }
 
     @Test
+    fun normalizesDuplicateFactsIndependentlyOfFormatting() {
+        assertEquals(MemoryFactPolicy.normalize("A fact"), MemoryFactPolicy.normalize(" a   FACT "))
+    }
+
+    @Test
     fun trimsAndCollapsesWhitespace() {
         assertEquals("I prefer concise answers", MemoryFactPolicy.validate("  I   prefer concise answers  "))
     }

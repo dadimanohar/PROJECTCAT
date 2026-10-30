@@ -126,6 +126,28 @@ class ChatHistoryStore(context: Context) {
     }
 
     @Synchronized
+    fun listFacts(limit: Int = 50): List<String> {
+        val results = mutableListOf<String>()
+        helper.readableDatabase.query(
+            TABLE_FACTS,
+            arrayOf(COLUMN_FACT),
+            null,
+            null,
+            null,
+            null,
+            "$COLUMN_CREATED_AT DESC, $COLUMN_FACT_ID DESC",
+            limit.coerceIn(1, 50).toString()
+        ).use { cursor ->
+            while (cursor.moveToNext()) results += cursor.getString(0)
+        }
+        return results
+    }
+
+    @Synchronized
+    fun clearFacts(): Int =
+        helper.writableDatabase.delete(TABLE_FACTS, null, null)
+
+    @Synchronized
     fun forgetFact(fact: String): Boolean {
         val normalized = MemoryFactPolicy.normalize(fact)
         if (normalized.isBlank()) return false

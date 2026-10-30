@@ -14,7 +14,7 @@ The Android foundation, online-provider implementation, push-to-talk voice layer
 - Local conversation history using SQLite (bounded to the latest 300 valid messages).
 - One-time migration of existing SharedPreferences chat history into SQLite.
 - User-confirmed clear-history action that deletes locally stored messages.
-- Explicit offline memory facts with `/remember`, keyword `/recall`, and exact `/forget` commands.
+- Explicit offline memory facts with `/remember`, keyword `/recall`, exact `/forget`, `/memories` inspection, and two-step `/forget-all` deletion.
 - Memory fact validation (1–500 characters), whitespace normalization, and duplicate replacement.
 - LiteRT-LM 0.18.1 runtime integration for an optional local Qwen3-0.6B model.
 - Wi-Fi-only in-app model download, size checks, SHA-256 verification, and CPU-only inference runner.
@@ -50,6 +50,8 @@ The current voice feature is push-to-talk. Android asks for microphone permissio
 - `/remember <fact>` stores an explicit fact locally (maximum 500 characters).
 - `/recall <keyword>` searches saved facts by keyword.
 - `/forget <exact fact>` deletes one exact saved fact.
+- `/memories` lists up to the 50 most recently saved facts.
+- `/forget-all` asks for a separate `/forget-all confirm` command before deleting every saved memory fact.
 - `/remember`, `/recall`, and `/forget` are handled on-device and do not call the online model. Retrieval is keyword-based, not semantic.
 
 ## Offline model setup
