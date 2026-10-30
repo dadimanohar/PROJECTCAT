@@ -6,7 +6,7 @@
 Jarvis is intended to be a local-first Android assistant with an online/offline intelligence layer, voice interaction, persistent memory, permission-controlled Android tools, and verifiable agent workflows.
 
 ## Honest status
-The Android foundation, online-provider implementation, push-to-talk voice layer, SQLite-backed chat history and explicit memory controls, LiteRT-LM offline-model integration, browser/maps/dialer handoffs, a one-action approval-gated online planner, and privacy-minimized local action history are committed. Jarvis is **not** a completed application and is **not** evidence of AGI. Commit `6b96421904ae0f16b86988ae6fd015924dac1b00` passed GitHub Actions run [41040534624](https://github.com/dadimanohar/PROJECTCAT/actions/runs/41040534624): unit tests passed, the debug APK built, and the `jarvis-debug-apk` artifact was uploaded. Physical-device installation, model download, and inference testing remain outstanding.
+The Android foundation, online-provider implementation, push-to-talk voice layer, SQLite-backed chat history and explicit memory controls, LiteRT-LM offline-model integration, browser/maps/dialer handoffs, a one-action approval-gated online planner, and privacy-minimized local action history are committed. Jarvis is **not** a completed application and is **not** evidence of AGI. Commit `f86cc1459e20bef423619194c9c4abddf26dbd95` passed GitHub Actions run [41041129213](https://github.com/dadimanohar/PROJECTCAT/actions/runs/41041129213): unit tests passed, the debug APK built, and the `jarvis-debug-apk` artifact was uploaded. Physical-device installation, model download, and inference testing remain outstanding.
 
 ### Implemented in this foundation
 - Kotlin + Jetpack Compose Android app structure.
@@ -19,6 +19,7 @@ The Android foundation, online-provider implementation, push-to-talk voice layer
 - LiteRT-LM 0.18.1 runtime integration for an optional local Qwen3-0.6B model.
 - Wi-Fi-only in-app model download, size checks, SHA-256 verification, and CPU-only inference runner.
 - Explicit offline-mode selection with no silent online fallback.
+- Local commands remain available in offline mode even when the optional local model is not ready; regular offline chat still requires a loaded model.
 - 2.8 GB available-RAM safety gate before model loading.
 - Explicit local command router: `/help`, `/open https://…`, `/search …`, `/maps …`, and `/dial …`.
 - Bounded online agent proposal: `/agent <task>` requests at most one allowlisted browser/maps/dialer action and waits for an explicit approval dialog. It does not run arbitrary code or chain actions.
@@ -71,7 +72,7 @@ The current voice feature is push-to-talk. Android asks for microphone permissio
 Jarvis can download the standard Qwen3-0.6B LiteRT-LM artifact (614 MB) from Hugging Face after the user taps Download model. The download is Wi-Fi-only, remains outside the APK, and is checked against a pinned SHA-256 before loading. Inference initially uses CPU. The app blocks model loading unless at least 2.8 GB RAM is currently available; this is a conservative safety gate, not proof that the model will run on the Tab A9. The model has not yet been downloaded or benchmarked on the physical tablet. See [offline model evaluation](docs/OFFLINE_MODEL_EVALUATION.md).
 
 ## Online provider setup
-In the app, enter an HTTPS OpenAI-compatible API base URL, model name, and optional API key, then save the provider. The key is encrypted with an Android Keystore AES-GCM key and is not stored in source control. The first provider implementation uses the standard `/chat/completions` endpoint and non-streaming responses. Provider compatibility still needs live testing.
+In the app, enter an HTTPS OpenAI-compatible API base URL, model name, and optional API key, then save the provider. The key is encrypted with an Android Keystore AES-GCM key and is not stored in source control. The first provider implementation uses the standard `/chat/completions` endpoint and non-streaming responses. **Test saved provider** sends a short test request using the saved settings and displays whether a response was received; it may incur API usage charges. Provider compatibility still needs live testing with your chosen service.
 
 ## Build prerequisites
 Android Studio, JDK 17, Android SDK Platform 35, Kotlin 2.4.21, and Gradle sync. Open this repository as a project and run the `app` configuration on an Android device or emulator. The current source commit was build-verified by GitHub Actions run [41040534624](https://github.com/dadimanohar/PROJECTCAT/actions/runs/41040534624). Its debug artifact is a debug build, not a Play Store release.

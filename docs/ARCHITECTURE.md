@@ -4,6 +4,8 @@
 
 ```
 Jetpack Compose UI (MainActivity)
+  ├── PromptSendPolicy
+  │     └── Local commands remain available while offline model is not ready
   ├── ChatCompletionProvider
   │     └── HTTPS OpenAI-compatible /chat/completions client
   ├── OfflineModelRunner
@@ -30,7 +32,7 @@ Jetpack Compose UI (MainActivity)
 - The policy module does not execute shell commands or arbitrary model-generated code.
 - The tool-risk policy gates the first Android action executor. Direct local commands are explicitly user-entered; AI-proposed actions require a separate approval dialog.
 - The SQLite action audit log stores only action category, outcome, and timestamp (not URL, search query, or phone number), keeps at most 100 events, and can be inspected or cleared by the user.
-- Offline inference has no silent cloud fallback.
+- Offline inference has no silent cloud fallback. Local command submission remains available even if the offline model has not loaded.
 - Provider endpoints must use HTTPS. API keys are encrypted with an Android Keystore AES-GCM key.
 - Chat and memory facts remain local in SQLite. Current memory recall is keyword matching, not semantic/vector retrieval.
 - Microphone access is push-to-talk only; no background wake phrase service exists.
