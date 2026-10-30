@@ -57,6 +57,7 @@ private fun JarvisHome(
     var isSending by remember { mutableStateOf(false) }
     var voiceStatus by remember { mutableStateOf("Voice input is push-to-talk; it does not listen in the background.") }
     var speakReplies by remember { mutableStateOf(true) }
+    var showClearHistoryDialog by remember { mutableStateOf(false) }
     var ttsReady by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
 
@@ -144,8 +145,13 @@ private fun JarvisHome(
     }
 
     Column(Modifier.fillMaxSize().padding(16.dp)) {
-        Text("JARVIS", style = MaterialTheme.typography.headlineLarge)
-        Text("Personal AI assistant • Online provider support")
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            Column {
+                Text("JARVIS", style = MaterialTheme.typography.headlineLarge)
+                Text("Personal AI assistant • Online provider support")
+            }
+            TextButton(onClick = { showClearHistoryDialog = true }) { Text("Clear history") }
+        }
         Spacer(Modifier.height(8.dp))
         Card(Modifier.fillMaxWidth()) {
             Column(Modifier.padding(12.dp)) {
@@ -215,6 +221,23 @@ private fun JarvisHome(
             label = { Text("Ask Jarvis") }
         )
         Text(voiceStatus, style = MaterialTheme.typography.bodySmall)
+        if (showClearHistoryDialog) {
+            AlertDialog(
+                onDismissRequest = { showClearHistoryDialog = false },
+                title = { Text("Clear conversation history?") },
+                text = { Text("This permanently deletes Jarvis's locally stored chat history from this device. It does not delete provider settings.") },
+                confirmButton = {
+                    TextButton(onClick = {
+                        historyStore.clear()
+                        messages = emptyList()
+                        showClearHistoryDialog = false
+                    }) { Text("Clear") }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showClearHistoryDialog = false }) { Text("Cancel") }
+                }
+            )
+        }
         Spacer(Modifier.height(8.dp))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             OutlinedButton(
