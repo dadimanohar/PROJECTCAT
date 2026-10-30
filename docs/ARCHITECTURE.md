@@ -11,7 +11,7 @@ Jetpack Compose UI (MainActivity)
   ├── OfflineModelRunner
   │     └── LiteRT-LM CPU engine + Qwen3-0.6B model file
   ├── ChatHistoryStore
-  │     └── SQLite chat history + explicit memory facts + bounded action audit events
+  │     └── SQLite chat history + explicit memory facts + local notes + bounded action audit events
   ├── ProviderCredentialStore
   │     └── Android Keystore AES-GCM encrypted API key
   ├── SpeechRecognizer + TextToSpeech
@@ -35,6 +35,7 @@ Jetpack Compose UI (MainActivity)
 - Offline inference has no silent cloud fallback. Local command submission remains available even if the offline model has not loaded.
 - Provider endpoints must use HTTPS. API keys are encrypted with an Android Keystore AES-GCM key.
 - Chat and memory facts remain local in SQLite. Current memory recall is keyword matching, not semantic/vector retrieval.
+- User-created notes remain local in SQLite, are capped at 200, and require a second explicit command to delete a note.
 - Microphone access is push-to-talk only; no background wake phrase service exists.
 
 ## Known limitations
