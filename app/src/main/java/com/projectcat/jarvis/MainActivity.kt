@@ -9,26 +9,40 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import com.projectcat.jarvis.memory.ChatHistoryStore
 import com.projectcat.jarvis.memory.ChatEntry
+import com.projectcat.jarvis.security.ProviderCredentialStore
+import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val historyStore = ChatHistoryStore(applicationContext)
-        setContent { MaterialTheme { JarvisHome(historyStore) } }
+        val credentialStore = ProviderCredentialStore(applicationContext)
+        setContent { MaterialTheme { JarvisHome(historyStore, credentialStore) } }
     }
 }
 
 @Composable
-private fun JarvisHome(historyStore: ChatHistoryStore) {
+private fun JarvisHome(
+    historyStore: ChatHistoryStore,
+    credentialStore: ProviderCredentialStore
+) {
     var prompt by remember { mutableStateOf("") }
     var messages by remember {
         mutableStateOf(historyStore.load().ifEmpty {
-            listOf(ChatEntry("Jarvis", "Jarvis foundation is running. AI providers and device tools are not connected yet."))
+            listOf(ChatEntry("Jarvis", "Jarvis is ready. Configure an AI provider to enable online responses."))
         })
     }
+    val savedSettings = remember { credentialStore.publicSettings() }
+    var baseUrl by remember { mutableStateOf(savedSettings.baseUrl) }
+    var model by remember { mutableStateOf(savedSettings.model) }
+    var apiKey by remember { mutableStateOf("") }
+    var settingsMessage by remember { mutableStateOf("API key is stored encrypted on this device.") }
+    var isSending by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
 
     fun appendMessage(role: String, text: String) {
         val updated = messages + ChatEntry(role, text)
@@ -38,8 +52,54 @@ private fun JarvisHome(historyStore: ChatHistoryStore) {
 
     Column(Modifier.fillMaxSize().padding(16.dp)) {
         Text("JARVIS", style = MaterialTheme.typography.headlineLarge)
-        Text("Personal AI assistant • Local-first foundation")
-        Spacer(Modifier.height(12.dp))
+        Text("Personal AI assistant • Online provider support")
+        Spacer(Modifier.height(8.dp))
+        Card(Modifier.fillMaxWidth()) {
+            Column(Modifier.padding(12.dp)) {
+                Text("AI provider settings", style = MaterialTheme.typography.titleMedium)
+                OutlinedTextField(
+                    value = baseUrl,
+                    onValueChange = { baseUrl = it },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    label = { Text("HTTPS API base URL") }
+                )
+                OutlinedTextField(
+                    value = model,
+                    onValueChange = { model = it },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    label = { Text("Model name") }
+                )
+                OutlinedTextField(
+                    value = apiKey,
+                    onValueChange = { apiKey = it },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    visualTransformation = PasswordVisualTransformation(),
+                    label = { Text("API key (leave blank to keep saved key)") }
+                )
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Button(onClick = {
+                        try {
+                            credentialStore.save(baseUrl, model, apiKey)
+                            apiKey = ""
+                            settingsMessage = "Provider settings saved. Credential encrypted with Android Keystore."
+                        } catch (error: Exception) {
+                            settingsMessage = error.message ?: "Could not save provider settings."
+                        }
+                    }, modifier = Modifier.weight(1f)) { Text("Save provider") }
+                    OutlinedButton(onClick = {
+                        credentialStore.clearCredentials()
+                        apiKey = ""
+                        settingsMessage = "Saved API key cleared. Provider may still work if it does not require a key."
+                    }) { Text("Clear key") }
+                }
+                Text(settingsMessage, style = MaterialTheme.typography.bodySmall)
+                Text("Only HTTPS endpoints are accepted. Never paste API keys into chat.", style = MaterialTheme.typography.bodySmall)
+            }
+        }
+        Spacer(Modifier.height(8.dp))
         LazyColumn(Modifier.weight(1f).fillMaxWidth()) {
             items(messages) { message ->
                 Card(Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
@@ -54,28 +114,33 @@ private fun JarvisHome(historyStore: ChatHistoryStore) {
             value = prompt,
             onValueChange = { prompt = it },
             modifier = Modifier.fillMaxWidth(),
-            label = { Text("Give Jarvis a command") }
+            enabled = !isSending,
+            label = { Text("Ask Jarvis") }
         )
         Spacer(Modifier.height(8.dp))
-        Row {
-            Button(onClick = {
+        Button(
+            enabled = !isSending && prompt.isNotBlank(),
+            onClick = {
                 val command = prompt.trim()
-                if (command.isNotEmpty()) {
-                    appendMessage("You", command)
-                    appendMessage("Jarvis", localReply(command))
-                    prompt = ""
+                prompt = ""
+                appendMessage("You", command)
+                val requestHistory = messages.takeLast(24)
+                isSending = true
+                scope.launch {
+                    try {
+                        val response = credentialStore.createProvider().reply(requestHistory)
+                        appendMessage("Jarvis", response)
+                    } catch (error: Exception) {
+                        appendMessage(
+                            "Jarvis",
+                            "AI request failed: ${error.message ?: "Unknown provider error"}. Check your connection and provider settings."
+                        )
+                    } finally {
+                        isSending = false
+                    }
                 }
-            }, modifier = Modifier.weight(1f)) { Text("Send") }
-            Spacer(Modifier.width(8.dp))
-            OutlinedButton(onClick = {
-                appendMessage("Jarvis", "Voice input is not connected yet. Use Send for now.")
-            }) { Text("Voice (planned)") }
-        }
+            },
+            modifier = Modifier.fillMaxWidth()
+        ) { Text(if (isSending) "Thinking…" else "Send") }
     }
-}
-
-private fun localReply(command: String): String = when (command.lowercase()) {
-    "hi", "hello", "hey jarvis" -> "Hello. I am ready. No external action was taken."
-    "help" -> "This foundation currently supports a basic chat interface and locally saved conversation history. AI, voice, and device tools are not implemented yet."
-    else -> "I received: \"$command\". I have not performed an action because no approved tool is connected for this request."
 }
