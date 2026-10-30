@@ -49,7 +49,7 @@ object LocalCommandPolicy {
 
         val uri = runCatching { URI(value) }.getOrNull()
             ?: return LocalCommand.Invalid("That URL is invalid.")
-        if (!uri.scheme.equals("https", ignoreCase = true) ||
+        if (uri.scheme?.equals("https", ignoreCase = true) != true ||
             uri.host.isNullOrBlank() ||
             uri.userInfo != null ||
             uri.isOpaque ||

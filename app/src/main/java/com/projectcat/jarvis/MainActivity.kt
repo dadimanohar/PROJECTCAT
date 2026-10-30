@@ -444,9 +444,9 @@ private fun JarvisHome(
                     appendMessage("You", command)
                     val localCommandReply = when (val localCommand = LocalCommandPolicy.parse(command)) {
                         null -> null
-                        LocalCommand.Help -> "Jarvis local commands:\\n" +
-                            "/open https://example.com — open a user-supplied HTTPS link in your browser.\\n" +
-                            "/search <query> — open a web search in your browser.\\n" +
+                        LocalCommand.Help -> "Jarvis local commands:\n" +
+                            "/open https://example.com — open a user-supplied HTTPS link in your browser.\n" +
+                            "/search <query> — open a web search in your browser.\n" +
                             "/remember <fact>, /recall <keyword>, /forget <exact fact> — manage local memory."
                         is LocalCommand.Invalid -> localCommand.message
                         is LocalCommand.OpenUrl -> {

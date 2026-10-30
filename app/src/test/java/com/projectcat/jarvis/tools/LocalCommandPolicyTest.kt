@@ -23,6 +23,7 @@ class LocalCommandPolicyTest {
     @Test
     fun rejectsInsecureOrCredentialBearingLinks() {
         assertTrue(LocalCommandPolicy.parse("/open http://example.com") is LocalCommand.Invalid)
+        assertTrue(LocalCommandPolicy.parse("/open example.com") is LocalCommand.Invalid)
         assertTrue(LocalCommandPolicy.parse("/open javascript:alert(1)") is LocalCommand.Invalid)
         assertTrue(
             LocalCommandPolicy.parse("/open https://user:pass@example.com") is LocalCommand.Invalid
