@@ -14,6 +14,8 @@ Jetpack Compose UI (MainActivity)
   │     └── SQLite chat history + explicit memory facts + local notes + bounded action audit events
   ├── ProviderCredentialStore
   │     └── Android Keystore AES-GCM encrypted API key
+  ├── StudyModePolicy
+  │     └── Persistent guided tutor mode for online chat only
   ├── SpeechRecognizer + TextToSpeech
   │     └── Push-to-talk input + optional spoken replies
   ├── LocalCommandPolicy
@@ -36,6 +38,7 @@ Jetpack Compose UI (MainActivity)
 - Provider endpoints must use HTTPS. API keys are encrypted with an Android Keystore AES-GCM key.
 - Chat and memory facts remain local in SQLite. Current memory recall is keyword matching, not semantic/vector retrieval.
 - User-created notes remain local in SQLite, are capped at 200, and require a second explicit command to delete a note.
+- Study Mode is a persistent user setting; online chat requests receive a Socratic tutor instruction. The offline runner does not yet accept a separate system instruction, so Study Mode is unavailable in offline mode.
 - Microphone access is push-to-talk only; no background wake phrase service exists.
 
 ## Known limitations
