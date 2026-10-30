@@ -20,7 +20,7 @@ object AndroidIntentCommandPolicy {
     const val MAX_SHARE_LENGTH = 2_000
 
     private val packagePattern =
-        Regex("""^[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*)+$""")
+        Regex("^[A-Za-z_][A-Za-z0-9_]*(\\\\.[A-Za-z_][A-Za-z0-9_]*)+$")
 
     // A wildcard is valid only in the subtype position: image/* or */*.
     private val mimePattern =
