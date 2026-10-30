@@ -3,6 +3,7 @@ package com.projectcat.jarvis
 import android.Manifest
 import android.app.DownloadManager
 import android.content.Intent
+import android.net.Uri
 import android.content.pm.PackageManager
 import android.os.Bundle
 import android.speech.RecognitionListener
@@ -28,6 +29,8 @@ import com.projectcat.jarvis.ai.OfflineModelStore
 import com.projectcat.jarvis.memory.ChatHistoryStore
 import com.projectcat.jarvis.memory.ChatEntry
 import com.projectcat.jarvis.security.ProviderCredentialStore
+import com.projectcat.jarvis.tools.LocalCommand
+import com.projectcat.jarvis.tools.LocalCommandPolicy
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -399,7 +402,7 @@ private fun JarvisHome(
             enabled = !isSending,
             label = { Text(if (useOfflineModel) "Ask Jarvis offline" else "Ask Jarvis") }
         )
-        Text("Local memory commands: /remember <fact> • /recall <keyword> • /forget <exact fact>", style = MaterialTheme.typography.bodySmall)
+        Text("Local commands: /help • /open https://example.com • /search query • /remember <fact> • /recall <keyword> • /forget <exact fact>", style = MaterialTheme.typography.bodySmall)
         Text(voiceStatus, style = MaterialTheme.typography.bodySmall)
         if (showClearHistoryDialog) {
             AlertDialog(
@@ -439,7 +442,41 @@ private fun JarvisHome(
                     val command = prompt.trim()
                     prompt = ""
                     appendMessage("You", command)
-                    val localMemoryReply = when {
+                    val localCommandReply = when (val localCommand = LocalCommandPolicy.parse(command)) {
+                        null -> null
+                        LocalCommand.Help -> "Jarvis local commands:\\n" +
+                            "/open https://example.com — open a user-supplied HTTPS link in your browser.\\n" +
+                            "/search <query> — open a web search in your browser.\\n" +
+                            "/remember <fact>, /recall <keyword>, /forget <exact fact> — manage local memory."
+                        is LocalCommand.Invalid -> localCommand.message
+                        is LocalCommand.OpenUrl -> {
+                            try {
+                                context.startActivity(
+                                    Intent.createChooser(
+                                        Intent(Intent.ACTION_VIEW, Uri.parse(localCommand.url)),
+                                        "Open link with"
+                                    )
+                                )
+                                "Opening the requested link in an app you choose."
+                            } catch (error: Exception) {
+                                "Could not open the link: ${error.message ?: "No compatible browser is available."}"
+                            }
+                        }
+                        is LocalCommand.SearchWeb -> {
+                            try {
+                                context.startActivity(
+                                    Intent.createChooser(
+                                        Intent(Intent.ACTION_VIEW, Uri.parse(localCommand.url)),
+                                        "Search the web with"
+                                    )
+                                )
+                                "Opening your web search in an app you choose."
+                            } catch (error: Exception) {
+                                "Could not open web search: ${error.message ?: "No compatible browser is available."}"
+                            }
+                        }
+                    }
+                    val localMemoryReply = localCommandReply ?: when {
                         command.startsWith("/remember", ignoreCase = true) -> {
                             val fact = command.substringAfter(' ', "").trim()
                             if (historyStore.rememberFact(fact)) {

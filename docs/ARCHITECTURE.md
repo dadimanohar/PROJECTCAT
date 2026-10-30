@@ -3,41 +3,58 @@
 ## Current app layers
 
 ```
-Compose UI
-  └── MainActivity / JarvisHome
-        ├── ChatHistoryStore (Android SharedPreferences, local-only)
-        └── localReply (temporary deterministic responder)
-
-Tool boundary
-  └── ToolPolicy
-        ├── READ_ONLY / REVERSIBLE → no extra approval in policy
-        └── SENSITIVE / DESTRUCTIVE → PENDING until explicit approval
+Jetpack Compose UI (MainActivity)
+  ├── ChatCompletionProvider
+  │     └── HTTPS OpenAI-compatible /chat/completions client
+  ├── OfflineModelRunner
+  │     └── LiteRT-LM CPU engine + Qwen3-0.6B model file
+  ├── ChatHistoryStore
+  │     └── SQLite chat history + explicit local memory facts
+  ├── ProviderCredentialStore
+  │     └── Android Keystore AES-GCM encrypted API key
+  ├── SpeechRecognizer + TextToSpeech
+  │     └── Push-to-talk input + optional spoken replies
+  └── LocalCommandPolicy
+        ├── /help
+        ├── /open https://...
+        └── /search ...
+              └── Explicit user command → Android ACTION_VIEW chooser
 ```
 
-## Engineering decisions
+## Implemented safety boundaries
 
-- Keep the Android app native (Kotlin + Jetpack Compose); do not wrap a desktop UI.
-- Keep model providers behind an interface so cloud providers can be switched without coupling UI to a vendor.
-- Treat offline inference as an optional capability selected only after device benchmarks. 4 GB RAM is a tight budget; model file size is not equal to runtime memory.
-- Store conversation history locally and cap it to 300 messages in this first implementation.
-- The current tool policy only decides whether approval is required. It does not execute Android actions.
-- Voice and wake-word support must use visible, permission-compliant Android microphone operation. A persistent 24/7 wake listener is not promised until validated on the actual tablet.
+- Only explicitly typed local slash commands are parsed by `LocalCommandPolicy`. Model-generated output is not passed to this parser.
+- Browser navigation accepts valid HTTPS URLs only and rejects embedded URL credentials.
+- Web searches are URL-encoded and handed to an Android chooser; Jarvis does not scrape pages or claim it has read the results.
+- The policy module does not execute shell commands or arbitrary model-generated code.
+- The current tool-risk policy is still only a policy checker; broader Android actions are not implemented.
+- Offline inference has no silent cloud fallback.
+- Provider endpoints must use HTTPS. API keys are encrypted with an Android Keystore AES-GCM key.
+- Chat and memory facts remain local in SQLite. Current memory recall is keyword matching, not semantic/vector retrieval.
+- Microphone access is push-to-talk only; no background wake phrase service exists.
+
+## Known limitations
+
+- The offline model code is build-verified but has not been downloaded, loaded, or benchmarked on the actual SM-X110.
+- A 2.8 GB available-RAM threshold is a conservative gate, not a guarantee that the 0.6B model will fit or run smoothly.
+- Browser handoff is a small first tool. There is no general Android device automation, autonomous planner, tool executor, verifier, or recovery loop yet.
+- A successful CI build does not validate speech services, app intents, network provider compatibility, offline inference, or performance on the physical tablet.
 
 ## Next implementation sequence
 
-1. Add repository and unit tests for local memory.
-2. Add provider abstraction and safe API-key storage.
-3. Add push-to-talk speech recognition and text-to-speech.
-4. Benchmark candidate quantized models on the target device.
-5. Add a narrowly scoped Android tool registry and approval UI.
-6. Add agent planner/executor/verifier with bounded steps and audit log.
-7. Build APK, run automated tests, then test on the SM-X110.
+1. Build a typed Android tool registry with explicit inputs, execution results, cancellation, and audit records.
+2. Add approval screens for sensitive or destructive operations before registering those tools.
+3. Add a bounded planner/executor/verifier loop that can call only registered tools and must verify tool results.
+4. Add user-managed memory inspection/export/deletion and improve retrieval only after tests and device-performance evaluation.
+5. Test push-to-talk, TTS, provider calls, browser intents, and local inference on the SM-X110.
+6. Evaluate whether a visible foreground wake-word service is practical and appropriate on this tablet.
+7. Run automated, integration, offline, permission, and physical-device tests before claiming completion.
 
 ## Status vocabulary
 
 - **Implemented in source:** code has been committed.
-- **Build verified:** Gradle build has completed successfully.
-- **Device verified:** tested on the Samsung SM-X110.
-- **Not started / blocked:** no implementation or test evidence yet.
+- **Build verified:** Gradle build and tests completed successfully in a named CI run.
+- **Device verified:** manually or instrumentally tested on the Samsung SM-X110.
+- **Not started / blocked:** no implementation or test evidence exists.
 
 Do not report a feature as working based only on a design, README, or successful GitHub commit.
