@@ -21,8 +21,8 @@ data class ProviderSettings(
 object ChatCompletionsEndpoint {
     fun from(baseUrl: String): String {
         val clean = baseUrl.trim().trimEnd('/')
-        require(clean.startsWith("https://") || clean.startsWith("http://")) {
-            "Provider URL must start with https:// or http://"
+        require(clean.startsWith("https://")) {
+            "Provider URL must use HTTPS to protect API credentials in transit."
         }
         return if (clean.endsWith("/chat/completions")) clean else "$clean/chat/completions"
     }
