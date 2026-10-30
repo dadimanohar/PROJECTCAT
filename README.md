@@ -6,7 +6,7 @@
 Jarvis is intended to be a local-first Android assistant with an online/offline intelligence layer, voice interaction, persistent memory, permission-controlled Android tools, and verifiable agent workflows.
 
 ## Honest status
-The Android foundation, online-provider implementation, push-to-talk voice layer, SQLite-backed chat history, explicit local memory facts, LiteRT-LM offline-model integration, and first explicit browser, maps, and dialer tools are committed. Jarvis is **not** a completed application and is **not** evidence of AGI. Commit `b817d79656a11da26145475e15d046d1402adb9f` passed GitHub Actions run [41038477676](https://github.com/dadimanohar/PROJECTCAT/actions/runs/41038477676): unit tests passed, the debug APK built, and the `jarvis-debug-apk` artifact was uploaded. Physical-device installation, model download, and inference testing remain outstanding.
+The Android foundation, online-provider implementation, push-to-talk voice layer, SQLite-backed chat history, explicit local memory facts, LiteRT-LM offline-model integration, and first explicit browser, maps, and dialer tools are committed. Jarvis is **not** a completed application and is **not** evidence of AGI. Commit `7bf77bdcf14c8d220a8ba8ea3ba01d37b7966134` passed GitHub Actions run [41039734720](https://github.com/dadimanohar/PROJECTCAT/actions/runs/41039734720): unit tests passed, the debug APK built, and the `jarvis-debug-apk` artifact was uploaded. Physical-device installation, model download, and inference testing remain outstanding.
 
 ### Implemented in this foundation
 - Kotlin + Jetpack Compose Android app structure.
@@ -23,10 +23,10 @@ The Android foundation, online-provider implementation, push-to-talk voice layer
 - Explicit local command router: `/help`, `/open https://…`, `/search …`, `/maps …`, and `/dial …`.
 - Bounded online agent proposal: `/agent <task>` requests at most one allowlisted browser/maps/dialer action and waits for an explicit approval dialog. It does not run arbitrary code or chain actions.
 - Browser and maps handoff use Android `ACTION_VIEW` chooser; URLs must be valid HTTPS and cannot contain embedded credentials. `/dial` uses `ACTION_DIAL` (not `ACTION_CALL`) and never places the call.
-- These actions are initiated only by commands typed by the user; model-generated text cannot invoke them.
+- Direct local actions are initiated by commands typed by the user. In `/agent` mode, raw model text is never executed: the proposal is parsed against the allowlist and a separate approval dialog is required.
 - Explicit response when a requested operation is not implemented; no fake device actions.
-- Initial tool-risk policy that blocks sensitive/destructive tool requests pending explicit approval.
-- Unit tests for chat-history retention, memory-fact validation, provider endpoint validation, tool approval policy, and local command validation (including URL, maps, and dialer cases; all passed in GitHub Actions run [41038477676](https://github.com/dadimanohar/PROJECTCAT/actions/runs/41038477676)).
+- Tool-risk policy and a typed Android action executor for the supported browser, maps, and dialer handoffs; sensitive dialer handoffs require the explicit command/approval path.
+- Unit tests for chat-history retention, memory-fact validation, provider endpoint validation, tool approval policy, local command validation, memory command validation, and bounded agent-plan validation (all passed in GitHub Actions run [41039734720](https://github.com/dadimanohar/PROJECTCAT/actions/runs/41039734720)).
 
 ### Not yet implemented
 - Actual model download, inference, speed, thermal, battery, and stability validation on the Tab A9 (integration code is present, but device behavior is unverified).
@@ -59,7 +59,7 @@ The current voice feature is push-to-talk. Android asks for microphone permissio
 - `/forget <exact fact>` deletes one exact saved fact.
 - `/memories` lists up to the 50 most recently saved facts.
 - `/forget-all` asks for a separate `/forget-all confirm` command before deleting every saved memory fact.
-- `/remember`, `/recall`, and `/forget` are handled on-device and do not call the online model. Retrieval is keyword-based, not semantic.
+- All memory commands are handled on-device and do not call the online model. Retrieval is keyword-based, not semantic.
 
 ## Offline model setup
 Jarvis can download the standard Qwen3-0.6B LiteRT-LM artifact (614 MB) from Hugging Face after the user taps Download model. The download is Wi-Fi-only, remains outside the APK, and is checked against a pinned SHA-256 before loading. Inference initially uses CPU. The app blocks model loading unless at least 2.8 GB RAM is currently available; this is a conservative safety gate, not proof that the model will run on the Tab A9. The model has not yet been downloaded or benchmarked on the physical tablet. See [offline model evaluation](docs/OFFLINE_MODEL_EVALUATION.md).
@@ -68,7 +68,7 @@ Jarvis can download the standard Qwen3-0.6B LiteRT-LM artifact (614 MB) from Hug
 In the app, enter an HTTPS OpenAI-compatible API base URL, model name, and optional API key, then save the provider. The key is encrypted with an Android Keystore AES-GCM key and is not stored in source control. The first provider implementation uses the standard `/chat/completions` endpoint and non-streaming responses. Provider compatibility still needs live testing.
 
 ## Build prerequisites
-Android Studio, JDK 17, Android SDK Platform 35, Kotlin 2.4.21, and Gradle sync. Open this repository as a project and run the `app` configuration on an Android device or emulator. The current source commit was build-verified by GitHub Actions run [41038477676](https://github.com/dadimanohar/PROJECTCAT/actions/runs/41038477676). Its debug artifact is a debug build, not a Play Store release.
+Android Studio, JDK 17, Android SDK Platform 35, Kotlin 2.4.21, and Gradle sync. Open this repository as a project and run the `app` configuration on an Android device or emulator. The current source commit was build-verified by GitHub Actions run [41039734720](https://github.com/dadimanohar/PROJECTCAT/actions/runs/41039734720). Its debug artifact is a debug build, not a Play Store release.
 
 ## Safety requirements
 - Obtain Android runtime permissions and show an ongoing notification for microphone foreground services.
@@ -83,6 +83,6 @@ Android Studio, JDK 17, Android SDK Platform 35, Kotlin 2.4.21, and Gradle sync.
 2. Live-test the OpenAI-compatible provider using a configured test account.
 3. Evaluate small quantized offline models against real RAM/latency limits.
 4. Test speech recognition and text-to-speech on the Tab A9; then investigate wake-word feasibility.
-5. Add narrowly scoped Android tools with permission gates.
-6. Add planner, executor, verifier, retries, and audit trail.
+5. Expand the narrowly scoped Android tool registry and add a persistent action audit trail.
+6. Extend the one-action online proposal flow into bounded multi-step plans with per-step approval, verification, retries, and recovery.
 7. Run integration, offline, permission, battery, and physical-device tests before calling the app complete.

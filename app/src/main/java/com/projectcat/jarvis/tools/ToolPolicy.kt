@@ -1,9 +1,11 @@
 package com.projectcat.jarvis.tools
 
 /**
- * Tool calls are descriptions only until a real Android implementation is registered.
- * Sensitive tools must request explicit user approval before execution.
+ * Risk and approval policy used by the typed Android action executor.
+ * This policy does not execute tools. The current executor only supports a narrow,
+ * allowlisted set of browser, maps, and dialer handoffs.
  */
+
 enum class RiskLevel { READ_ONLY, REVERSIBLE, SENSITIVE, DESTRUCTIVE }
 enum class ApprovalState { NOT_REQUIRED, PENDING, APPROVED, REJECTED }
 

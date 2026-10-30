@@ -27,6 +27,21 @@ class AgentPlanParserTest {
     }
 
     @Test
+    fun parsesHttpsOpenAndDialerProposals() {
+        val open = AgentPlanParser.parse(
+            "Open the official site",
+            "TOOL: open_url\nINPUT: https://example.com\nREASON: Open the secure site requested by the user."
+        )
+        assertTrue(open?.action is LocalCommand.OpenUrl)
+
+        val dial = AgentPlanParser.parse(
+            "Prepare a call",
+            "TOOL: dial_number\nINPUT: +919876543210\nREASON: Open the dialer with this number for user review."
+        )
+        assertTrue(dial?.action is LocalCommand.DialNumber)
+    }
+
+    @Test
     fun rejectsUnsafeUrlsAndUnknownTools() {
         assertNull(
             AgentPlanParser.parse(
