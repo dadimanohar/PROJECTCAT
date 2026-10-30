@@ -518,7 +518,7 @@ private fun JarvisHome(
                             if (matches.isEmpty()) {
                                 "No saved memory matched that keyword."
                             } else {
-                                "Saved memories:\\n" + matches.joinToString("\\n") { "• $it" }
+                                "Saved memories:\n" + matches.joinToString("\n") { "• $it" }
                             }
                         }
                         is MemoryCommand.Forget -> {
@@ -533,8 +533,8 @@ private fun JarvisHome(
                             if (facts.isEmpty()) {
                                 "There are no saved memory facts on this device."
                             } else {
-                                "Saved memory facts (latest ${facts.size}):\\n" +
-                                    facts.mapIndexed { index, fact -> "${index + 1}. $fact" }.joinToString("\\n")
+                                "Saved memory facts (latest ${facts.size}):\n" +
+                                    facts.mapIndexed { index, fact -> "${index + 1}. $fact" }.joinToString("\n")
                             }
                         }
                         MemoryCommand.ConfirmClearAll -> {
