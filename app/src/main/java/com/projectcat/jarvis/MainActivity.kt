@@ -402,7 +402,7 @@ private fun JarvisHome(
             enabled = !isSending,
             label = { Text(if (useOfflineModel) "Ask Jarvis offline" else "Ask Jarvis") }
         )
-        Text("Local commands: /help • /open https://example.com • /search query • /remember <fact> • /recall <keyword> • /forget <exact fact>", style = MaterialTheme.typography.bodySmall)
+        Text("Local commands: /help • /open https://… • /search … • /maps … • /dial … • /remember … • /recall … • /forget …", style = MaterialTheme.typography.bodySmall)
         Text(voiceStatus, style = MaterialTheme.typography.bodySmall)
         if (showClearHistoryDialog) {
             AlertDialog(
@@ -447,6 +447,8 @@ private fun JarvisHome(
                         LocalCommand.Help -> "Jarvis local commands:\n" +
                             "/open https://example.com — open a user-supplied HTTPS link in your browser.\n" +
                             "/search <query> — open a web search in your browser.\n" +
+                            "/maps <place> — open a map search.\n" +
+                            "/dial <number> — open the dialer with a number prefilled; it will not place a call.\n" +
                             "/remember <fact>, /recall <keyword>, /forget <exact fact> — manage local memory."
                         is LocalCommand.Invalid -> localCommand.message
                         is LocalCommand.OpenUrl -> {
@@ -460,6 +462,27 @@ private fun JarvisHome(
                                 "Opening the requested link in an app you choose."
                             } catch (error: Exception) {
                                 "Could not open the link: ${error.message ?: "No compatible browser is available."}"
+                            }
+                        }
+                        is LocalCommand.MapsSearch -> {
+                            try {
+                                context.startActivity(
+                                    Intent.createChooser(
+                                        Intent(Intent.ACTION_VIEW, Uri.parse(localCommand.url)),
+                                        "Find this place with"
+                                    )
+                                )
+                                "Opening the requested place in a map app you choose."
+                            } catch (error: Exception) {
+                                "Could not open maps: ${error.message ?: "No compatible map app is available."}"
+                            }
+                        }
+                        is LocalCommand.DialNumber -> {
+                            try {
+                                context.startActivity(Intent(Intent.ACTION_DIAL, Uri.parse(localCommand.uri)))
+                                "Opening the dialer with the number filled in. Review it and tap Call yourself."
+                            } catch (error: Exception) {
+                                "Could not open the dialer: ${error.message ?: "No compatible dialer is available."}"
                             }
                         }
                         is LocalCommand.SearchWeb -> {

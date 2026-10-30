@@ -42,6 +42,26 @@ class LocalCommandPolicyTest {
     }
 
     @Test
+    fun createsEncodedMapsSearchUrl() {
+        val result = LocalCommandPolicy.parse("/maps Visakhapatnam railway station")
+        assertTrue(result is LocalCommand.MapsSearch)
+        assertEquals(
+            "https://www.google.com/maps/search/?api=1&query=Visakhapatnam+railway+station",
+            (result as LocalCommand.MapsSearch).url
+        )
+    }
+
+    @Test
+    fun dialCommandOnlyCreatesDialerUriAndNeverCalls() {
+        assertEquals(
+            LocalCommand.DialNumber("+919876543210", "tel:+919876543210"),
+            LocalCommandPolicy.parse("/dial +91 98765-43210")
+        )
+        assertTrue(LocalCommandPolicy.parse("/dial 12") is LocalCommand.Invalid)
+        assertTrue(LocalCommandPolicy.parse("/dial 123;456") is LocalCommand.Invalid)
+    }
+
+    @Test
     fun rejectsEmptyAndOverlongSearchQueries() {
         assertTrue(LocalCommandPolicy.parse("/search   ") is LocalCommand.Invalid)
         assertTrue(LocalCommandPolicy.parse("/search " + "x".repeat(301)) is LocalCommand.Invalid)

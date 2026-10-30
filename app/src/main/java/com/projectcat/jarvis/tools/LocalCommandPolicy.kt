@@ -8,6 +8,8 @@ sealed interface LocalCommand {
     data object Help : LocalCommand
     data class OpenUrl(val url: String) : LocalCommand
     data class SearchWeb(val query: String, val url: String) : LocalCommand
+    data class MapsSearch(val query: String, val url: String) : LocalCommand
+    data class DialNumber(val number: String, val uri: String) : LocalCommand
     data class Invalid(val message: String) : LocalCommand
 }
 
@@ -35,6 +37,8 @@ object LocalCommandPolicy {
                 else LocalCommand.Invalid("/help does not accept an argument.")
             "/open" -> parseOpen(argument)
             "/search" -> parseSearch(argument)
+            "/maps" -> parseMaps(argument)
+            "/dial" -> parseDial(argument)
             else -> null
         }
     }
@@ -58,6 +62,34 @@ object LocalCommandPolicy {
             return LocalCommand.Invalid("Only valid HTTPS URLs without embedded credentials are allowed.")
         }
         return LocalCommand.OpenUrl(uri.toASCIIString())
+    }
+
+    private fun parseMaps(query: String): LocalCommand {
+        if (query.isBlank()) {
+            return LocalCommand.Invalid("Usage: /maps <place or address>")
+        }
+        if (query.length > MAX_SEARCH_LENGTH || query.any(Char::isISOControl)) {
+            return LocalCommand.Invalid("Map search text must be 1–300 characters and cannot contain control characters.")
+        }
+        val encoded = URLEncoder.encode(query, StandardCharsets.UTF_8.name())
+        return LocalCommand.MapsSearch(
+            query = query,
+            url = "https://www.google.com/maps/search/?api=1&query=$encoded"
+        )
+    }
+
+    private fun parseDial(number: String): LocalCommand {
+        if (number.isBlank()) {
+            return LocalCommand.Invalid("Usage: /dial <phone number>")
+        }
+        if (number.length > 25 || !number.matches(Regex("[0-9+().\\s-]+"))) {
+            return LocalCommand.Invalid("Enter a phone number using digits, an optional leading +, spaces, parentheses, or hyphens.")
+        }
+        val normalized = number.replace(Regex("[().\\s-]"), "")
+        if (!normalized.matches(Regex("\\+?[0-9]{3,15}"))) {
+            return LocalCommand.Invalid("Phone number must contain 3–15 digits and may have one leading +.")
+        }
+        return LocalCommand.DialNumber(normalized, "tel:$normalized")
     }
 
     private fun parseSearch(query: String): LocalCommand {

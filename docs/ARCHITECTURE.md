@@ -25,7 +25,8 @@ Jetpack Compose UI (MainActivity)
 
 - Only explicitly typed local slash commands are parsed by `LocalCommandPolicy`. Model-generated output is not passed to this parser.
 - Browser navigation accepts valid HTTPS URLs only and rejects embedded URL credentials.
-- Web searches are URL-encoded and handed to an Android chooser; Jarvis does not scrape pages or claim it has read the results.
+- Web and maps searches are URL-encoded and handed to an Android chooser; Jarvis does not scrape pages or claim it has read the results.
+- Dialer handoff uses ACTION_DIAL only; it never places a phone call or requests call permission.
 - The policy module does not execute shell commands or arbitrary model-generated code.
 - The current tool-risk policy is still only a policy checker; broader Android actions are not implemented.
 - Offline inference has no silent cloud fallback.
