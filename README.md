@@ -6,7 +6,7 @@
 Jarvis is intended to be a local-first Android assistant with an online/offline intelligence layer, voice interaction, persistent memory, permission-controlled Android tools, and verifiable agent workflows.
 
 ## Honest status
-The Android foundation, online-provider implementation, push-to-talk voice layer, SQLite-backed chat history, explicit local memory facts, and first LiteRT-LM offline-model integration are committed. Jarvis is **not** a completed application and is **not** evidence of AGI. CI passed the database and memory changes at commit 2a255006. The LiteRT-LM integration and Kotlin 2.4.21 upgrade are undergoing a fresh build; device-level model testing remains outstanding.
+The Android foundation, online-provider implementation, push-to-talk voice layer, SQLite-backed chat history, explicit local memory facts, and first LiteRT-LM offline-model integration are committed. Jarvis is **not** a completed application and is **not** evidence of AGI. GitHub Actions passed unit tests, built the debug APK, and uploaded the artifact for commit 539688ae in [run 41022435853](https://github.com/dadimanohar/PROJECTCAT/actions/runs/41022435853). Physical-device installation, model download, and inference testing remain outstanding.
 
 ### Implemented in this foundation
 - Kotlin + Jetpack Compose Android app structure.
