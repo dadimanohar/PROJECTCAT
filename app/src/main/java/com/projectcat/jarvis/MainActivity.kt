@@ -81,6 +81,7 @@ private fun JarvisHome(
     var model by remember { mutableStateOf(savedSettings.model) }
     var apiKey by remember { mutableStateOf("") }
     var settingsMessage by remember { mutableStateOf("API key is stored encrypted on this device.") }
+    var isTestingProvider by remember { mutableStateOf(false) }
     var isSending by remember { mutableStateOf(false) }
     var voiceStatus by remember { mutableStateOf("Voice input is push-to-talk; it does not listen in the background.") }
     var speakReplies by remember { mutableStateOf(true) }
@@ -389,13 +390,34 @@ private fun JarvisHome(
                         } catch (error: Exception) {
                             settingsMessage = error.message ?: "Could not save provider settings."
                         }
-                    }, modifier = Modifier.weight(1f)) { Text("Save provider") }
-                    OutlinedButton(onClick = {
+                    }, enabled = !isTestingProvider, modifier = Modifier.weight(1f)) { Text("Save provider") }
+                    OutlinedButton(enabled = !isTestingProvider, onClick = {
                         credentialStore.clearCredentials()
                         apiKey = ""
                         settingsMessage = "Saved API key cleared."
                     }) { Text("Clear key") }
                 }
+                OutlinedButton(
+                    enabled = !isTestingProvider && !isSending,
+                    onClick = {
+                        isTestingProvider = true
+                        settingsMessage = "Testing the saved provider. This sends a short API request and may incur provider usage charges."
+                        scope.launch {
+                            try {
+                                credentialStore.createProvider().reply(
+                                    listOf(ChatEntry("You", "Reply with exactly: JARVIS_CONNECTION_OK"))
+                                )
+                                settingsMessage = "Provider test succeeded. The saved endpoint, model, and credentials returned a response."
+                            } catch (error: Exception) {
+                                settingsMessage = "Provider test failed: " + (error.message ?: "Unknown provider error")
+                            } finally {
+                                isTestingProvider = false
+                            }
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                ) { Text(if (isTestingProvider) "Testing provider…" else "Test saved provider") }
+                Text("This tests the saved settings, not unsaved edits. It sends a short request and may incur provider usage charges.", style = MaterialTheme.typography.bodySmall)
                 Text(settingsMessage, style = MaterialTheme.typography.bodySmall)
                 Text("Only HTTPS endpoints are accepted. Never paste API keys into chat.", style = MaterialTheme.typography.bodySmall)
             }
