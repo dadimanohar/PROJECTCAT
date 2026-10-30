@@ -24,8 +24,8 @@ class ProviderCredentialStore(context: Context) {
 
     @Synchronized
     fun save(baseUrl: String, model: String, apiKey: String) {
-        require(baseUrl.startsWith("https://") || baseUrl.startsWith("http://")) {
-            "Provider URL must start with https:// or http://"
+        require(baseUrl.trim().startsWith("https://")) {
+            "Provider URL must use HTTPS to protect API credentials in transit."
         }
         require(model.isNotBlank()) { "Model name cannot be empty." }
         val editor = prefs.edit()
