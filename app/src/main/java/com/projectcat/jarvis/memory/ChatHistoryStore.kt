@@ -69,7 +69,7 @@ class ChatHistoryStore(context: Context) {
             retained.forEach { entry ->
                 db.execSQL(
                     "INSERT INTO $TABLE_MESSAGES ($COLUMN_ROLE, $COLUMN_TEXT, $COLUMN_CREATED_AT) VALUES (?, ?, ?)",
-                    arrayOf(entry.role, entry.text, System.currentTimeMillis())
+                    arrayOf<Any>(entry.role, entry.text, System.currentTimeMillis())
                 )
             }
             db.setTransactionSuccessful()
@@ -164,7 +164,7 @@ class ChatHistoryStore(context: Context) {
             ChatHistoryPolicy.retain(legacyEntries).forEach { entry ->
                 db.execSQL(
                     "INSERT INTO $TABLE_MESSAGES ($COLUMN_ROLE, $COLUMN_TEXT, $COLUMN_CREATED_AT) VALUES (?, ?, ?)",
-                    arrayOf(entry.role, entry.text, System.currentTimeMillis())
+                    arrayOf<Any>(entry.role, entry.text, System.currentTimeMillis())
                 )
             }
             db.setTransactionSuccessful()
