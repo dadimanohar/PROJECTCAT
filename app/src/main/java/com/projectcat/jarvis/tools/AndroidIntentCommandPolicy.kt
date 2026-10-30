@@ -24,7 +24,7 @@ object AndroidIntentCommandPolicy {
 
     // A wildcard is valid only in the subtype position: image/* or */*.
     private val mimePattern =
-        Regex("""^[A-Za-z0-9!#&^_.+-]+/(?:[A-Za-z0-9!#&^_.+-]+|[*])$""")
+        Regex("""^(?:[*]/[*]|[A-Za-z0-9!#&^_.+-]+/(?:[A-Za-z0-9!#&^_.+-]+|[*]))$""")
 
     fun parse(input: String): AndroidIntentCommand? {
         val command = input.trim()
