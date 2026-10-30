@@ -6,7 +6,7 @@
 Jarvis is intended to be a local-first Android assistant with an online/offline intelligence layer, voice interaction, persistent memory, permission-controlled Android tools, and verifiable agent workflows.
 
 ## Honest status
-The Android foundation, online-provider implementation, push-to-talk voice layer, SQLite-backed chat history and explicit memory controls, LiteRT-LM offline-model integration, browser/maps/dialer handoffs, a one-action approval-gated online planner, and privacy-minimized local action history are committed. Jarvis is **not** a completed application and is **not** evidence of AGI. Commit `f86cc1459e20bef423619194c9c4abddf26dbd95` passed GitHub Actions run [41041129213](https://github.com/dadimanohar/PROJECTCAT/actions/runs/41041129213): unit tests passed, the debug APK built, and the `jarvis-debug-apk` artifact was uploaded. Physical-device installation, model download, and inference testing remain outstanding.
+The Android foundation, online-provider implementation, push-to-talk voice layer, SQLite chat history, explicit memory facts, local notes, LiteRT-LM offline-model integration, browser/maps/dialer handoffs, one-action approval-gated online planner, and privacy-minimized action history are committed. Jarvis is **not** a completed application and is **not** evidence of AGI. Latest verified commit `8c4b961d3c4ca78892c981e863e8c1a96b78dd0f` passed GitHub Actions run [41065789411](https://github.com/dadimanohar/PROJECTCAT/actions/runs/41065789411): unit tests passed, the debug APK built, and the `jarvis-debug-apk` artifact (about 32.8 MB) was uploaded. Physical-device installation, model download, and inference testing remain outstanding.
 
 ### Implemented in this foundation
 - Kotlin + Jetpack Compose Android app structure.
@@ -15,6 +15,7 @@ The Android foundation, online-provider implementation, push-to-talk voice layer
 - One-time migration of existing SharedPreferences chat history into SQLite.
 - User-confirmed clear-history action that deletes locally stored messages.
 - Explicit offline memory facts with `/remember`, keyword `/recall`, exact `/forget`, `/memories` inspection, and two-step `/forget-all` deletion.
+- Local notes with `/note`, `/notes`, and two-step `/delete-note <id>` deletion; note text is stored locally in SQLite, validated to 1–1,000 characters, and capped at 200 notes.
 - Memory fact validation (1–500 characters), whitespace normalization, and duplicate replacement.
 - LiteRT-LM 0.18.1 runtime integration for an optional local Qwen3-0.6B model.
 - Wi-Fi-only in-app model download, size checks, SHA-256 verification, and CPU-only inference runner.
@@ -28,7 +29,7 @@ The Android foundation, online-provider implementation, push-to-talk voice layer
 - Explicit response when a requested operation is not implemented; no fake device actions.
 - Tool-risk policy and a typed Android action executor for supported browser, maps, and dialer handoffs; the AI planner cannot execute anything until the approval dialog is accepted.
 - Privacy-minimized SQLite action audit history for direct user-entered and approved agent handoffs, with 100-entry retention, `/action-log` inspection, and confirmed clearing.
-- Unit tests for chat-history retention, memory-fact validation, provider endpoint validation, tool approval policy, local command validation, memory command validation, bounded agent-plan validation, and action-audit command/privacy validation (all passed in GitHub Actions run [41040534624](https://github.com/dadimanohar/PROJECTCAT/actions/runs/41040534624)).
+- Unit tests for chat-history retention, memory-fact validation, provider endpoint validation, tool approval policy, local command validation, memory command validation, local note command/validation policies, bounded agent-plan validation, and action-audit command/privacy validation (all passed in GitHub Actions run [41065789411](https://github.com/dadimanohar/PROJECTCAT/actions/runs/41065789411)).
 
 ### Not yet implemented
 - Actual model download, inference, speed, thermal, battery, and stability validation on the Tab A9 (integration code is present, but device behavior is unverified).
@@ -62,6 +63,12 @@ The current voice feature is push-to-talk. Android asks for microphone permissio
 - `/memories` lists up to the 50 most recently saved facts.
 - `/forget-all` asks for a separate `/forget-all confirm` command before deleting every saved memory fact.
 - All memory commands are handled on-device and do not call the online model. Retrieval is keyword-based, not semantic.
+
+## Local notes
+- `/note <text>` stores a note in the on-device SQLite database; the note is not sent to an AI provider.
+- `/notes` lists the latest 30 saved notes and their local IDs.
+- `/delete-note <id>` displays a deletion confirmation instruction. Send `/delete-note <id> confirm` to delete that exact note.
+- Note text is limited to 1,000 characters and the database retains at most 200 notes.
 
 ## Action audit history
 - `/action-log` lists the latest 30 local Android handoffs.
