@@ -38,6 +38,8 @@ import com.projectcat.jarvis.memory.MemoryCommandPolicy
 import com.projectcat.jarvis.memory.ActionAuditCommand
 import com.projectcat.jarvis.memory.ActionAuditCommandPolicy
 import com.projectcat.jarvis.memory.ActionAuditPolicy
+import com.projectcat.jarvis.memory.NoteCommand
+import com.projectcat.jarvis.memory.NoteCommandPolicy
 import com.projectcat.jarvis.security.ProviderCredentialStore
 import com.projectcat.jarvis.tools.LocalCommand
 import com.projectcat.jarvis.tools.LocalCommandPolicy
@@ -446,7 +448,7 @@ private fun JarvisHome(
             enabled = !isSending,
             label = { Text(if (useOfflineModel) "Ask Jarvis offline" else "Ask Jarvis") }
         )
-        Text("Commands: /help • /agent • /open • /search • /maps • /dial • /remember • /recall • /memories • /forget • /forget-all • /action-log", style = MaterialTheme.typography.bodySmall)
+        Text("Commands: /help • /agent • /open • /search • /maps • /dial • /note • /notes • /delete-note • /remember • /recall • /memories • /forget • /forget-all • /action-log", style = MaterialTheme.typography.bodySmall)
         Text(voiceStatus, style = MaterialTheme.typography.bodySmall)
         if (showClearHistoryDialog) {
             AlertDialog(
@@ -530,6 +532,7 @@ private fun JarvisHome(
                             "/dial <number> — open the dialer with a number prefilled; it will not place a call.\n" +
                             "/agent <task> — prepare one supported online action for your approval.\n" +
                             "/remember <fact>, /recall <keyword>, /memories, /forget <exact fact>, /forget-all — manage local memory.\n" +
+                            "/note <text> and /notes — save and list local notes; /delete-note <id> requires a second confirmation.\n" +
                             "/action-log — show recent Android handoffs; /clear-action-log confirm — clear that log."
                         is LocalCommand.Invalid -> localCommand.message
                         is LocalCommand.OpenUrl ->
@@ -584,7 +587,46 @@ private fun JarvisHome(
                         MemoryCommand.RequestClearAllConfirmation ->
                             "This permanently deletes all saved memory facts. To confirm, send /forget-all confirm."
                     }
-                    val localActionReply = localMemoryReply ?: when (
+                    val localNoteReply = localMemoryReply ?: when (
+                        val noteCommand = NoteCommandPolicy.parse(command)
+                    ) {
+                        null -> null
+                        is NoteCommand.Invalid -> noteCommand.message
+                        is NoteCommand.Add -> {
+                            val noteId = historyStore.addNote(noteCommand.text)
+                            if (noteId > 0L) {
+                                "Saved note #$noteId locally on this device. Use /notes to view it."
+                            } else {
+                                "The note could not be saved. Notes are limited to 1,000 characters."
+                            }
+                        }
+                        NoteCommand.List -> {
+                            val notes = historyStore.listNotes()
+                            if (notes.isEmpty()) {
+                                "There are no saved notes on this device."
+                            } else {
+                                "Recent local notes:\\n" + notes.joinToString("\\n") { note ->
+                                    "#${note.id} — ${note.text}"
+                                }
+                            }
+                        }
+                        is NoteCommand.RequestDeleteConfirmation -> {
+                            val exists = historyStore.listNotes(200).any { it.id == noteCommand.noteId }
+                            if (exists) {
+                                "This will permanently delete local note #${noteCommand.noteId}. To confirm, send /delete-note ${noteCommand.noteId} confirm."
+                            } else {
+                                "No saved note with ID #${noteCommand.noteId} was found."
+                            }
+                        }
+                        is NoteCommand.ConfirmDelete -> {
+                            if (historyStore.deleteNote(noteCommand.noteId)) {
+                                "Deleted local note #${noteCommand.noteId}."
+                            } else {
+                                "No saved note with ID #${noteCommand.noteId} was found."
+                            }
+                        }
+                    }
+                    val localActionReply = localNoteReply ?: when (
                         val auditCommand = ActionAuditCommandPolicy.parse(command)
                     ) {
                         null -> null
