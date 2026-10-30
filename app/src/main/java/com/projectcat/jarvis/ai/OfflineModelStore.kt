@@ -9,6 +9,13 @@ import android.os.StatFs
 import java.io.File
 import java.security.MessageDigest
 
+object OfflineModelReadinessPolicy {
+    const val MIN_FREE_RAM_BYTES = 2_800_000_000L
+
+    fun canLoad(availableRamBytes: Long): Boolean =
+        availableRamBytes >= MIN_FREE_RAM_BYTES
+}
+
 data class ModelDownloadProgress(
     val status: Int,
     val downloadedBytes: Long,
