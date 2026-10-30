@@ -534,11 +534,11 @@ private fun JarvisHome(
                         is LocalCommand.OpenUrl ->
                             performLocalAction(localCommand)
                         is LocalCommand.MapsSearch ->
-                            actionExecutor.execute(localCommand, confirmedByUser = true).message
+                            performLocalAction(localCommand)
                         is LocalCommand.DialNumber ->
-                            actionExecutor.execute(localCommand, confirmedByUser = true).message
+                            performLocalAction(localCommand)
                         is LocalCommand.SearchWeb ->
-                            actionExecutor.execute(localCommand, confirmedByUser = true).message
+                            performLocalAction(localCommand)
                     }
                     val localMemoryReply = localCommandReply ?: when (
                         val memoryCommand = MemoryCommandPolicy.parse(command)
