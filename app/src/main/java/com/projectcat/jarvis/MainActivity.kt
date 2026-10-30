@@ -61,7 +61,7 @@ private fun JarvisHome(historyStore: ChatHistoryStore) {
             Button(onClick = {
                 val command = prompt.trim()
                 if (command.isNotEmpty()) {
-                    appendChatEntry("You", command)
+                    appendMessage("You", command)
                     appendChatEntry("Jarvis", localReply(command))
                     prompt = ""
                 }
