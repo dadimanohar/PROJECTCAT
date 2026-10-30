@@ -1,5 +1,6 @@
 package com.projectcat.jarvis.ai
 
+import android.app.ActivityManager
 import android.app.DownloadManager
 import android.content.Context
 import android.net.Uri
@@ -32,6 +33,13 @@ class OfflineModelStore(context: Context) {
 
     fun savedDownloadId(): Long? =
         prefs.getLong(KEY_DOWNLOAD_ID, NO_DOWNLOAD_ID).takeIf { it != NO_DOWNLOAD_ID }
+
+    fun availableMemoryBytes(): Long {
+        val activityManager = appContext.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
+        val memoryInfo = ActivityManager.MemoryInfo()
+        activityManager.getMemoryInfo(memoryInfo)
+        return memoryInfo.availMem
+    }
 
     fun isVerifiedModelPresent(): Boolean =
         prefs.getBoolean(KEY_VERIFIED, false) &&
