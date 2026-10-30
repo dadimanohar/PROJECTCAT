@@ -6,7 +6,7 @@
 Jarvis is intended to be a local-first Android assistant with an online/offline intelligence layer, voice interaction, persistent memory, permission-controlled Android tools, and verifiable agent workflows.
 
 ## Honest status
-The Android foundation and first online-provider implementation are committed. Jarvis is **not** a completed application and is **not** evidence of AGI. The first CI run exposed a Java/Kotlin JVM target mismatch; the targets have now been aligned to Java 17 and a fresh CI run is pending. No successful APK build or physical-device test is confirmed yet.
+The Android foundation, online-provider implementation, and first push-to-talk voice layer are committed. Jarvis is **not** a completed application and is **not** evidence of AGI. GitHub Actions has successfully run the unit-test task, built a debug APK, and uploaded the APK artifact for commit f52457a1. Physical-device testing and live provider testing remain outstanding.
 
 ### Implemented in this foundation
 - Kotlin + Jetpack Compose Android app structure.
@@ -20,13 +20,19 @@ The Android foundation and first online-provider implementation are committed. J
 ### Not yet implemented
 - OpenAI-compatible HTTPS chat provider client (non-streaming Chat Completions format).
 - Android Keystore AES-GCM encrypted API-key storage and provider settings UI (implementation committed; device behavior not yet verified).
+- Permission-gated push-to-talk speech recognition that fills the composer for user review.
+- Optional text-to-speech for Jarvis replies, with a user-controlled toggle.
+- Android 11+ package visibility queries for speech recognition and TTS services.
 - Local/offline model runtime and performance validation on the Tab A9.
 - Semantic long-term memory, retrieval, and user-facing memory management (basic chat history is implemented; richer memory remains pending).
-- Speech recognition, text-to-speech, wake phrase, and background microphone service.
+- Always-on wake phrase and background microphone service (not implemented; push-to-talk only).
 - Android app/device automation and permission/approval flows.
 - Agent planning, tool execution, verification, and recovery.
 - GitHub Actions workflow committed to run unit tests and build/upload a debug APK. Initial run failed at Kotlin compilation because Java and Kotlin JVM targets differed; both are now configured for Java 17 and the rerun is pending.
 - APK installation and physical-device validation.
+
+## Voice interaction
+The current voice feature is push-to-talk. Android asks for microphone permission when the user taps Speak; recognised text is placed in the composer and must be reviewed and sent by the user. Jarvis replies can be spoken using Android TextToSpeech. This does not provide a wake word or background listening, and speech service availability/language behavior must be checked on the physical tablet.
 
 ## Online provider setup
 In the app, enter an HTTPS OpenAI-compatible API base URL, model name, and optional API key, then save the provider. The key is encrypted with an Android Keystore AES-GCM key and is not stored in source control. The first provider implementation uses the standard `/chat/completions` endpoint and non-streaming responses. Provider compatibility still needs live testing.
@@ -43,11 +49,10 @@ Android Studio, JDK 17, Android SDK Platform 35, and Gradle sync. Open this repo
 - Treat model output as untrusted; verify tool results independently.
 
 ## Roadmap
-1. Build and test the Android shell.
-2. Add local database-backed chat and memory.
-3. Extend and validate the OpenAI-compatible provider integration.
-4. Evaluate small quantized offline models against real RAM/latency limits.
-5. Add push-to-talk, speech output, then investigate wake-word support.
-6. Add narrowly scoped Android tools with permission gates.
-7. Add planner, executor, verifier, retries, and audit trail.
-8. Run unit, integration, offline, permission, battery, and device tests; publish APK and test report only after they pass.
+1. Add local database-backed chat and memory.
+2. Live-test the OpenAI-compatible provider using a configured test account.
+3. Evaluate small quantized offline models against real RAM/latency limits.
+4. Test speech recognition and text-to-speech on the Tab A9; then investigate wake-word feasibility.
+5. Add narrowly scoped Android tools with permission gates.
+6. Add planner, executor, verifier, retries, and audit trail.
+7. Run integration, offline, permission, battery, and physical-device tests before calling the app complete.
