@@ -6,6 +6,13 @@ plugins {
 android {
     namespace = "com.projectcat.jarvis"
     compileSdk = 35
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+    }
+    kotlinOptions {
+        jvmTarget = "17"
+    }
     defaultConfig {
         applicationId = "com.projectcat.jarvis"
         minSdk = 26
