@@ -64,12 +64,8 @@ class OpenAiCompatibleProvider(
         val payload = JSONObject()
             .put("model", settings.model.trim())
             .put("messages", JSONArray().apply {
-                if (!systemInstruction.isNullOrBlank()) {
-                    put(JSONObject().put("role", "system").put("content", systemInstruction))
-                }
-                history.takeLast(24).forEach { entry ->
-                    val role = if (entry.role.equals("Jarvis", true)) "assistant" else "user"
-                    put(JSONObject().put("role", role).put("content", entry.text))
+                ChatCompletionPayloadPolicy.messages(history, systemInstruction).forEach { message ->
+                    put(JSONObject().put("role", message.role).put("content", message.content))
                 }
             })
         val connection = (URL(endpoint).openConnection() as HttpURLConnection).apply {
