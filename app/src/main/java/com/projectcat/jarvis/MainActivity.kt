@@ -1,6 +1,7 @@
 package com.projectcat.jarvis
 
 import android.Manifest
+import android.app.DownloadManager
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Bundle
@@ -22,10 +23,15 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
+import com.projectcat.jarvis.ai.OfflineModelRunner
+import com.projectcat.jarvis.ai.OfflineModelStore
 import com.projectcat.jarvis.memory.ChatHistoryStore
 import com.projectcat.jarvis.memory.ChatEntry
 import com.projectcat.jarvis.security.ProviderCredentialStore
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.util.Locale
 
 class MainActivity : ComponentActivity() {
@@ -43,6 +49,10 @@ private fun JarvisHome(
     credentialStore: ProviderCredentialStore
 ) {
     val context = LocalContext.current
+    val modelStore = remember(context) { OfflineModelStore(context) }
+    val offlineRunner = remember(context) { OfflineModelRunner(context) }
+    val offlineState by offlineRunner.state.collectAsState()
+
     var prompt by remember { mutableStateOf("") }
     var messages by remember {
         mutableStateOf(historyStore.load().ifEmpty {
@@ -57,9 +67,87 @@ private fun JarvisHome(
     var isSending by remember { mutableStateOf(false) }
     var voiceStatus by remember { mutableStateOf("Voice input is push-to-talk; it does not listen in the background.") }
     var speakReplies by remember { mutableStateOf(true) }
+    var useOfflineModel by remember { mutableStateOf(false) }
     var showClearHistoryDialog by remember { mutableStateOf(false) }
     var ttsReady by remember { mutableStateOf(false) }
+
+    var modelVerified by remember {
+        mutableStateOf(runCatching { modelStore.isVerifiedModelPresent() }.getOrDefault(false))
+    }
+    var downloadId by remember { mutableStateOf(modelStore.savedDownloadId()) }
+    var downloadProgress by remember { mutableIntStateOf(0) }
+    var downloadActive by remember { mutableStateOf(downloadId != null && !modelVerified) }
+    var downloadStatus by remember {
+        mutableStateOf(if (modelVerified) "Model downloaded and verified." else "Offline model not installed.")
+    }
+    var availableRam by remember { mutableLongStateOf(modelStore.availableMemoryBytes()) }
+
     val scope = rememberCoroutineScope()
+
+    DisposableEffect(offlineRunner) {
+        onDispose { offlineRunner.close() }
+    }
+
+    LaunchedEffect(Unit) {
+        if (!modelVerified) {
+            val existingFile = runCatching { modelStore.modelFile() }.getOrNull()
+            if (existingFile?.isFile == true) {
+                val verified = withContext(Dispatchers.IO) { modelStore.verifyDownloadedModel() }
+                modelVerified = verified
+                downloadStatus = if (verified) {
+                    "Existing model file passed SHA-256 verification."
+                } else {
+                    "Existing model file failed verification and was removed."
+                }
+            }
+        }
+    }
+
+    LaunchedEffect(downloadId) {
+        val id = downloadId ?: return@LaunchedEffect
+        while (true) {
+            val progress = withContext(Dispatchers.IO) { modelStore.queryDownload(id) }
+            if (progress == null) {
+                if (!modelVerified) downloadStatus = "Download record not found. You can retry."
+                downloadActive = false
+                break
+            }
+            downloadProgress = progress.percent
+            when (progress.status) {
+                DownloadManager.STATUS_SUCCESSFUL -> {
+                    downloadActive = false
+                    val verified = withContext(Dispatchers.IO) { modelStore.verifyDownloadedModel() }
+                    modelVerified = verified
+                    downloadStatus = if (verified) {
+                        "Download complete. SHA-256 verified. Tap Load model."
+                    } else {
+                        "Model integrity check failed. The downloaded file was deleted; retry the download."
+                    }
+                    break
+                }
+                DownloadManager.STATUS_FAILED -> {
+                    downloadActive = false
+                    downloadStatus = "Download failed (reason ${progress.reason}). You can retry."
+                    break
+                }
+                DownloadManager.STATUS_PAUSED -> {
+                    downloadActive = true
+                    downloadStatus = "Download paused (reason ${progress.reason}). Connect to Wi-Fi."
+                    delay(1500)
+                }
+                else -> {
+                    downloadActive = true
+                    downloadStatus = "Downloading offline model: ${progress.percent}%"
+                    delay(1000)
+                }
+            }
+        }
+    }
+
+    LaunchedEffect(offlineState.ready, offlineState.error) {
+        if (offlineState.ready) downloadStatus = "Offline model loaded and ready (CPU backend)."
+        offlineState.error?.let { downloadStatus = "Model load failed: $it" }
+    }
 
     val textToSpeech = remember(context) {
         TextToSpeech(context) { status -> ttsReady = status == TextToSpeech.SUCCESS }
@@ -148,14 +236,96 @@ private fun JarvisHome(
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             Column {
                 Text("JARVIS", style = MaterialTheme.typography.headlineLarge)
-                Text("Personal AI assistant • Online provider support")
+                Text("Personal AI assistant • Online and offline modes")
             }
             TextButton(onClick = { showClearHistoryDialog = true }) { Text("Clear history") }
         }
         Spacer(Modifier.height(8.dp))
+
         Card(Modifier.fillMaxWidth()) {
             Column(Modifier.padding(12.dp)) {
-                Text("AI provider settings", style = MaterialTheme.typography.titleMedium)
+                Text("Offline model", style = MaterialTheme.typography.titleMedium)
+                Text("${OfflineModelStore.MODEL_NAME} • ${OfflineModelStore.MODEL_SIZE_LABEL} • CPU inference")
+                Text("Wi-Fi-only download. Model stays outside the APK.")
+                Text(
+                    "Free RAM now: ${String.format(Locale.US, "%.1f", availableRam / 1_000_000_000.0)} GB. " +
+                        "This model may need substantial additional RAM; 4 GB devices can run out of memory."
+                )
+                Text(downloadStatus, style = MaterialTheme.typography.bodySmall)
+                if (downloadActive) {
+                    Text("Download progress: $downloadProgress%")
+                }
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Button(
+                        enabled = !downloadActive && !modelVerified,
+                        onClick = {
+                            try {
+                                downloadId = modelStore.startDownload()
+                                downloadActive = true
+                                downloadProgress = 0
+                                downloadStatus = "Download queued. Wi-Fi connection required."
+                            } catch (error: Exception) {
+                                downloadStatus = error.message ?: "Could not start model download."
+                            }
+                        },
+                        modifier = Modifier.weight(1f)
+                    ) { Text(if (modelVerified) "Downloaded" else "Download model") }
+                    Button(
+                        enabled = modelVerified && !offlineState.loading && !offlineState.ready,
+                        onClick = {
+                            availableRam = modelStore.availableMemoryBytes()
+                            offlineRunner.load(modelStore.modelFile())
+                            downloadStatus = "Loading model on CPU in the background…"
+                        },
+                        modifier = Modifier.weight(1f)
+                    ) { Text(if (offlineState.loading) "Loading…" else "Load model") }
+                }
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Text("Use offline AI")
+                    Switch(
+                        checked = useOfflineModel,
+                        onCheckedChange = { useOfflineModel = it },
+                        enabled = offlineState.ready && !offlineState.busy
+                    )
+                }
+                if (offlineState.ready) {
+                    Text("Offline model is loaded. Chat stays on-device when offline mode is selected.")
+                    TextButton(onClick = {
+                        useOfflineModel = false
+                        offlineRunner.unload()
+                        downloadStatus = "Offline model unloaded to release memory."
+                    }) { Text("Unload model and free RAM") }
+                }
+                offlineState.error?.let {
+                    Text(it, color = MaterialTheme.colorScheme.error)
+                }
+                if (!modelVerified) {
+                    TextButton(
+                        enabled = !downloadActive,
+                        onClick = {
+                            modelStore.deleteModel()
+                            downloadId = null
+                            downloadProgress = 0
+                            downloadStatus = "Offline model download state cleared."
+                        }
+                    ) { Text("Clear failed download") }
+                } else {
+                    TextButton(onClick = {
+                        useOfflineModel = false
+                        offlineRunner.unload()
+                        modelStore.deleteModel()
+                        modelVerified = false
+                        downloadId = null
+                        downloadStatus = "Offline model deleted from this device."
+                    }) { Text("Delete downloaded model") }
+                }
+            }
+        }
+
+        Spacer(Modifier.height(8.dp))
+        Card(Modifier.fillMaxWidth()) {
+            Column(Modifier.padding(12.dp)) {
+                Text("Online AI provider settings", style = MaterialTheme.typography.titleMedium)
                 OutlinedTextField(
                     value = baseUrl,
                     onValueChange = { baseUrl = it },
@@ -198,6 +368,7 @@ private fun JarvisHome(
                 Text("Only HTTPS endpoints are accepted. Never paste API keys into chat.", style = MaterialTheme.typography.bodySmall)
             }
         }
+
         Spacer(Modifier.height(8.dp))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             Text("Speak Jarvis replies")
@@ -218,7 +389,7 @@ private fun JarvisHome(
             onValueChange = { prompt = it },
             modifier = Modifier.fillMaxWidth(),
             enabled = !isSending,
-            label = { Text("Ask Jarvis") }
+            label = { Text(if (useOfflineModel) "Ask Jarvis offline" else "Ask Jarvis") }
         )
         Text("Local memory commands: /remember <fact> • /recall <keyword> • /forget <exact fact>", style = MaterialTheme.typography.bodySmall)
         Text(voiceStatus, style = MaterialTheme.typography.bodySmall)
@@ -226,7 +397,7 @@ private fun JarvisHome(
             AlertDialog(
                 onDismissRequest = { showClearHistoryDialog = false },
                 title = { Text("Clear conversation history?") },
-                text = { Text("This permanently deletes Jarvis's locally stored chat history from this device. It does not delete provider settings.") },
+                text = { Text("This permanently deletes Jarvis's locally stored chat history from this device. It does not delete provider settings or saved memory facts.") },
                 confirmButton = {
                     TextButton(onClick = {
                         historyStore.clear()
@@ -255,7 +426,7 @@ private fun JarvisHome(
                 modifier = Modifier.weight(1f)
             ) { Text("🎙 Speak") }
             Button(
-                enabled = !isSending && prompt.isNotBlank(),
+                enabled = !isSending && prompt.isNotBlank() && (!useOfflineModel || offlineState.ready),
                 onClick = {
                     val command = prompt.trim()
                     prompt = ""
@@ -299,7 +470,11 @@ private fun JarvisHome(
                         isSending = true
                         scope.launch {
                             try {
-                                val response = credentialStore.createProvider().reply(requestHistory)
+                                val response = if (useOfflineModel) {
+                                    offlineRunner.generate(command)
+                                } else {
+                                    credentialStore.createProvider().reply(requestHistory)
+                                }
                                 appendMessage("Jarvis", response)
                                 if (speakReplies && ttsReady) {
                                     textToSpeech.speak(response, TextToSpeech.QUEUE_FLUSH, null, "jarvis_reply")
@@ -307,7 +482,11 @@ private fun JarvisHome(
                             } catch (error: Exception) {
                                 appendMessage(
                                     "Jarvis",
-                                    "AI request failed: ${error.message ?: "Unknown provider error"}. Check your connection and provider settings."
+                                    if (useOfflineModel) {
+                                        "Offline AI failed: ${error.message ?: "Unknown inference error"}. Online fallback was not used."
+                                    } else {
+                                        "AI request failed: ${error.message ?: "Unknown provider error"}. Check your connection and provider settings."
+                                    }
                                 )
                             } finally {
                                 isSending = false
