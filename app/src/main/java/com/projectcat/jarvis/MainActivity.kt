@@ -62,7 +62,7 @@ private fun JarvisHome(historyStore: ChatHistoryStore) {
                 val command = prompt.trim()
                 if (command.isNotEmpty()) {
                     appendMessage("You", command)
-                    appendChatEntry("Jarvis", localReply(command))
+                    appendMessage("Jarvis", localReply(command))
                     prompt = ""
                 }
             }, modifier = Modifier.weight(1f)) { Text("Send") }
