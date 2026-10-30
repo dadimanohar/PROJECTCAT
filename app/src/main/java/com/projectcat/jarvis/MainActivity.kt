@@ -220,6 +220,7 @@ private fun JarvisHome(
             enabled = !isSending,
             label = { Text("Ask Jarvis") }
         )
+        Text("Local memory commands: /remember <fact> • /recall <keyword> • /forget <exact fact>", style = MaterialTheme.typography.bodySmall)
         Text(voiceStatus, style = MaterialTheme.typography.bodySmall)
         if (showClearHistoryDialog) {
             AlertDialog(
@@ -259,22 +260,58 @@ private fun JarvisHome(
                     val command = prompt.trim()
                     prompt = ""
                     appendMessage("You", command)
-                    val requestHistory = messages.takeLast(24)
-                    isSending = true
-                    scope.launch {
-                        try {
-                            val response = credentialStore.createProvider().reply(requestHistory)
-                            appendMessage("Jarvis", response)
-                            if (speakReplies && ttsReady) {
-                                textToSpeech.speak(response, TextToSpeech.QUEUE_FLUSH, null, "jarvis_reply")
+                    val localMemoryReply = when {
+                        command.startsWith("/remember", ignoreCase = true) -> {
+                            val fact = command.removePrefix("/remember").trim()
+                            if (historyStore.rememberFact(fact)) {
+                                "Saved that fact in local memory on this device."
+                            } else {
+                                "Memory was not saved. Provide a fact between 1 and 500 characters."
                             }
-                        } catch (error: Exception) {
-                            appendMessage(
-                                "Jarvis",
-                                "AI request failed: ${error.message ?: "Unknown provider error"}. Check your connection and provider settings."
-                            )
-                        } finally {
-                            isSending = false
+                        }
+                        command.startsWith("/recall", ignoreCase = true) -> {
+                            val query = command.removePrefix("/recall").trim()
+                            val matches = historyStore.searchFacts(query)
+                            if (query.isBlank()) {
+                                "Provide a keyword after /recall."
+                            } else if (matches.isEmpty()) {
+                                "No saved memory matched that keyword."
+                            } else {
+                                "Saved memories:\\n" + matches.joinToString("\\n") { "• $it" }
+                            }
+                        }
+                        command.startsWith("/forget", ignoreCase = true) -> {
+                            val fact = command.removePrefix("/forget").trim()
+                            if (fact.isBlank()) {
+                                "Provide the exact saved fact after /forget."
+                            } else if (historyStore.forgetFact(fact)) {
+                                "Deleted that exact fact from local memory."
+                            } else {
+                                "No exact matching saved fact was found."
+                            }
+                        }
+                        else -> null
+                    }
+                    if (localMemoryReply != null) {
+                        appendMessage("Jarvis", localMemoryReply)
+                    } else {
+                        val requestHistory = messages.takeLast(24)
+                        isSending = true
+                        scope.launch {
+                            try {
+                                val response = credentialStore.createProvider().reply(requestHistory)
+                                appendMessage("Jarvis", response)
+                                if (speakReplies && ttsReady) {
+                                    textToSpeech.speak(response, TextToSpeech.QUEUE_FLUSH, null, "jarvis_reply")
+                                }
+                            } catch (error: Exception) {
+                                appendMessage(
+                                    "Jarvis",
+                                    "AI request failed: ${error.message ?: "Unknown provider error"}. Check your connection and provider settings."
+                                )
+                            } finally {
+                                isSending = false
+                            }
                         }
                     }
                 },
